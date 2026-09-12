@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { animated, easings, useSpring, useSprings } from '@react-spring/web'
+import { useEffect, useState } from 'react'
+import { animated, easings, useSpring } from '@react-spring/web'
 import { useDrag } from '@use-gesture/react'
 
 const BACKGROUND = 'linear-gradient(120deg, #f9a8c3 0%, #ec5f8f 100%)'
@@ -9,24 +9,29 @@ const HEART_MOVE_DURATION = 900
 export function CuteUnlockSlider() {
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [showTitle, setShowTitle] = useState(false)
-  const [{ dragY, baseY, foregroundOpacity, heartX, scale }, api] = useSpring(() => ({
+  const [typedTitle, setTypedTitle] = useState('')
+  const [{ dragY, baseY, foregroundOpacity, heartScale, heartX, scale }, api] = useSpring(() => ({
     dragY: 0,
     baseY: 0,
     foregroundOpacity: 1,
+    heartScale: 0.5,
     heartX: 0,
     scale: 1,
   }))
 
-  // ให้ตัวอักษรปรากฏทีละตัวตลอด 900ms เท่ากับช่วงเวลาที่หัวใจเลื่อนไปด้านขวา
-  const titleTrail = useSprings(
-    ANNIVERSARY_TITLE.length,
-    ANNIVERSARY_TITLE.split('').map((_, index) => ({
-      opacity: showTitle ? 1 : 0,
-      y: showTitle ? 0 : 5,
-      delay: showTitle ? (index * HEART_MOVE_DURATION) / (ANNIVERSARY_TITLE.length - 1) : 0,
-      config: { duration: 55, easing: easings.easeOutCubic },
-    })),
-  )
+  // Typewriter จริง: เติมตัวอักษรทีละตัวให้ครบภายใน 900ms เท่ากับหัวใจเลื่อน
+  useEffect(() => {
+    if (!showTitle) return
+
+    const characterDelay = HEART_MOVE_DURATION / ANNIVERSARY_TITLE.length
+    const timerIds = ANNIVERSARY_TITLE.split('').map((_, index) =>
+      window.setTimeout(() => {
+        setTypedTitle(ANNIVERSARY_TITLE.slice(0, index + 1))
+      }, (index + 1) * characterDelay),
+    )
+
+    return () => timerIds.forEach((timerId) => window.clearTimeout(timerId))
+  }, [showTitle])
 
   // รับเฉพาะการลากลงด้านล่าง และจำกัดระยะเพื่อไม่ให้แผงหลุดออกจากหน้าจอ
   const bind = useDrag(({ active, movement: [, movementY] }) => {
@@ -42,6 +47,7 @@ export function CuteUnlockSlider() {
 
     api.start({
       dragY: active ? dragDistance : 0,
+      heartScale: active ? Math.min(1, Math.max(0.5, dragDistance / 150)) : 0.5,
       scale: active ? 1.05 : 1,
       immediate: (key) => active && key === 'dragY',
       config: { tension: 300, friction: 22 },
@@ -62,17 +68,16 @@ export function CuteUnlockSlider() {
     await Promise.all([fadeForeground, moveBaseCard])
 
     // รองรับจอเล็ก: จำกัดระยะเพื่อให้หัวใจไม่ล้นออกนอกการ์ด
-    const rightOffset = Math.max(0, Math.min(192, window.innerWidth - 176))
+    const rightOffset = Math.max(0, Math.min(216, window.innerWidth - 152))
     setShowTitle(true)
     await api.start({
+      // เมื่อ BaseCard อยู่บนสุด หัวใจย่อเหลือครึ่งหนึ่งเพื่อเปิดพื้นที่ให้หัวข้อ
+      heartScale: 0.5,
       heartX: rightOffset,
       // 900ms พร้อม ease-in-out: เริ่มและจบแบบนุ่ม โดยไม่เด้งเกินตำแหน่ง
       config: { duration: HEART_MOVE_DURATION, easing: easings.easeInOutCubic },
     })
   }
-
-  // ยิ่งลากลงไกล หัวใจบนพื้นหลังก็จะใหญ่ขึ้นตาม
-  const heartScale = dragY.to((value) => Math.min(1, Math.max(0.5, value / 150)))
 
   return (
     <main className="relative z-10 grid min-h-screen place-items-center p-6">
@@ -89,12 +94,8 @@ export function CuteUnlockSlider() {
           >
             ♥
           </animated.div>
-          <p className="absolute left-8 right-28 top-1/2 -translate-y-1/2 font-display text-left text-lg font-bold leading-tight text-white sm:text-xl">
-            {titleTrail.map((style, index) => (
-              <animated.span key={`${ANNIVERSARY_TITLE[index]}-${index}`} style={style} className="inline-block">
-                {ANNIVERSARY_TITLE[index] === ' ' ? '\u00a0' : ANNIVERSARY_TITLE[index]}
-              </animated.span>
-            ))}
+          <p className="absolute left-3 right-16 top-1/2 -translate-y-1/2 whitespace-nowrap font-display text-left text-xl font-bold leading-tight tracking-tight text-white sm:text-3xl">
+            {typedTitle}
             {showTitle && <span className="ml-0.5 animate-pulse text-blossom-100">|</span>}
           </p>
         </animated.div>
