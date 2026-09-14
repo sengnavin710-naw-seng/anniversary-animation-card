@@ -39,6 +39,7 @@ export function CuteUnlockSlider() {
   const [showHeartBox, setShowHeartBox] = useState(false)
   const [isHeartExpanding, setIsHeartExpanding] = useState(false)
   const [showHeartBoxShadow, setShowHeartBoxShadow] = useState(false)
+  const [startOuterProgress, setStartOuterProgress] = useState(false)
   const [typedTitle, setTypedTitle] = useState('')
   const [typedNote, setTypedNote] = useState('')
   const [{ dragY, baseY, foregroundOpacity, heartScale, heartX, scale }, api] = useSpring(() => ({
@@ -66,6 +67,25 @@ export function CuteUnlockSlider() {
     opacity: showHeartBoxShadow ? 1 : 0,
     scaleX: showHeartBoxShadow ? 1 : 0.08,
     config: { duration: 1000, easing: easings.easeOutCubic },
+  })
+  const outerProgressStyle = useSpring({
+    from: { opacity: 0, strokeDashoffset: 6000 },
+    to: {
+      opacity: startOuterProgress ? 1 : 0,
+      strokeDashoffset: startOuterProgress ? 0 : 6000,
+    },
+    config: { duration: 4500, easing: easings.easeInOutCubic },
+    // หัวเส้นเห็นทันทีตอนเริ่มพิมพ์ ส่วนความยาวเส้นค่อย ๆ วิ่งรอบกรอบ
+    immediate: (key) => key === 'opacity',
+  })
+  const cardProgressStyle = useSpring({
+    from: { opacity: 0, strokeDashoffset: 4000 },
+    to: {
+      opacity: startOuterProgress ? 1 : 0,
+      strokeDashoffset: startOuterProgress ? 0 : 4000,
+    },
+    config: { duration: 4500, easing: easings.easeInOutCubic },
+    immediate: (key) => key === 'opacity',
   })
   const glassHighlight = useSpring({
     from: { opacity: 0, x: -140 },
@@ -173,6 +193,8 @@ export function CuteUnlockSlider() {
     const characterDelay = 18
     const timerIds: number[] = []
     const startTimer = window.setTimeout(() => {
+      // เส้นกรอบนอกเริ่มเติมพร้อมตัวอักษรตัวแรก
+      setStartOuterProgress(true)
       NOTE_TEXT.split('').forEach((_, index) => {
         timerIds.push(window.setTimeout(() => {
           setTypedNote(NOTE_TEXT.slice(0, index + 1))
@@ -266,12 +288,28 @@ export function CuteUnlockSlider() {
         ))}
       </div>
       {showHeartBoxShadow && (
-        <div
-          className="pointer-events-none absolute left-1/2 top-1 z-[5] w-[calc(100%+1rem)] max-w-[22rem] -translate-x-1/2 rounded-[2.3rem] border-[3px] border-blossom-500 bg-transparent shadow-[0_0_0_2px_rgba(236,72,153,0.18),0_18px_38px_rgba(190,24,93,0.26)]"
+        <animated.svg
+          className="pointer-events-none absolute left-1/2 top-1 z-[6] w-[calc(100%+1rem)] max-w-[22rem] -translate-x-1/2 overflow-visible"
           style={{ height: 'calc(min(20rem, 100vw - 2rem) + 24.75rem)' }}
+          viewBox="0 0 1000 2000"
+          preserveAspectRatio="none"
           aria-hidden="true"
         >
-        </div>
+          <animated.path
+            d="M 105 5 H 895 Q 995 5 995 105 V 1895 Q 995 1995 895 1995 H 105 Q 5 1995 5 1895 V 105 Q 5 5 105 5 Z"
+            fill="none"
+            stroke="#ec5f8f"
+            strokeWidth="4"
+            vectorEffect="non-scaling-stroke"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray="6000 6000"
+            style={{
+              ...outerProgressStyle,
+              filter: 'drop-shadow(0 0 5px rgba(236, 72, 153, 0.68)) drop-shadow(0 12px 18px rgba(190, 24, 93, 0.24))',
+            }}
+          />
+        </animated.svg>
       )}
       <div className="relative isolate z-30 h-28 w-full max-w-xs">
         <animated.span
@@ -285,6 +323,21 @@ export function CuteUnlockSlider() {
           style={{ background: BACKGROUND, y: baseY }}
           className="absolute inset-0 z-10 grid touch-none select-none items-center overflow-visible rounded-2xl px-8 shadow-xl shadow-blossom-500/30"
         >
+          {showHeartBoxShadow && (
+            <animated.svg className="pointer-events-none absolute inset-0 z-20 h-full w-full overflow-visible" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
+              <animated.path
+                d="M 105 5 H 895 Q 995 5 995 105 V 895 Q 995 995 895 995 H 105 Q 5 995 5 895 V 105 Q 5 5 105 5 Z"
+                fill="none"
+                stroke="#ffd1e4"
+                strokeWidth="3"
+                vectorEffect="non-scaling-stroke"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray="4000 4000"
+                style={{ ...cardProgressStyle, filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.52))' }}
+              />
+            </animated.svg>
+          )}
           <animated.span
             style={glassHighlight}
             className="pointer-events-none absolute -inset-y-10 left-0 z-0 w-16 bg-white/55 blur-md"
@@ -351,7 +404,7 @@ export function CuteUnlockSlider() {
           <div className="relative aspect-square w-full">
             <animated.div
               style={heartBoxStyle}
-              className={`absolute inset-0 overflow-hidden border-[4px] border-blossom-300 ${
+              className={`absolute inset-0 overflow-hidden border-[4px] border-transparent ${
                 showHeartBoxShadow ? 'shadow-[0_24px_48px_rgba(190,24,93,0.28)]' : ''
               }`}
             >
@@ -361,6 +414,21 @@ export function CuteUnlockSlider() {
                 className="h-full w-full object-cover"
               />
             </animated.div>
+            {showHeartBoxShadow && (
+              <animated.svg className="pointer-events-none absolute inset-0 z-20 h-full w-full overflow-visible" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
+                <animated.path
+                  d="M 105 5 H 895 Q 995 5 995 105 V 895 Q 995 995 895 995 H 105 Q 5 995 5 895 V 105 Q 5 5 105 5 Z"
+                  fill="none"
+                  stroke="#ec5f8f"
+                  strokeWidth="4"
+                  vectorEffect="non-scaling-stroke"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="4000 4000"
+                  style={{ ...cardProgressStyle, filter: 'drop-shadow(0 0 4px rgba(236,72,153,0.62))' }}
+                />
+              </animated.svg>
+            )}
           </div>
 
           {showHeartBoxShadow && (
@@ -369,13 +437,26 @@ export function CuteUnlockSlider() {
                 opacity: notebookStyle.opacity,
                 transform: notebookStyle.scaleX.to((value) => `scaleX(${value})`),
               }}
-              className="relative mt-6 h-[200px] w-full origin-left overflow-hidden rounded-[1.4rem] border-[4px] border-blossom-300 bg-pink-100 shadow-[0_14px_28px_rgba(190,24,93,0.2)] outline outline-2 outline-pink-200 outline-offset-[-9px]"
+              className="relative mt-6 h-[200px] w-full origin-left overflow-hidden rounded-[1.4rem] border-[4px] border-transparent bg-pink-100 shadow-[0_14px_28px_rgba(190,24,93,0.2)]"
             >
               <img
                 src={notebookCard}
                 alt=""
                 className="absolute inset-0 h-full w-full object-cover contrast-[1.1] saturate-[1.15]"
               />
+              <animated.svg className="pointer-events-none absolute inset-0 z-20 h-full w-full overflow-visible" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
+                <animated.path
+                  d="M 105 5 H 895 Q 995 5 995 105 V 895 Q 995 995 895 995 H 105 Q 5 995 5 895 V 105 Q 5 5 105 5 Z"
+                  fill="none"
+                  stroke="#ec5f8f"
+                  strokeWidth="4"
+                  vectorEffect="non-scaling-stroke"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="4000 4000"
+                  style={{ ...cardProgressStyle, filter: 'drop-shadow(0 0 4px rgba(236,72,153,0.62))' }}
+                />
+              </animated.svg>
               <p className="absolute left-[10%] right-[6%] top-[11.5%] z-10 whitespace-pre-wrap font-sans text-[clamp(0.35rem,1.6vw,0.45rem)] font-medium leading-[12.4px] tracking-[-0.01em] text-pink-700">
                 {typedNote}
                 {typedNote && typedNote.length < NOTE_TEXT.length && (
