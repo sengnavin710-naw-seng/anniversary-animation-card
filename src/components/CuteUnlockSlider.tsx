@@ -40,6 +40,7 @@ export function CuteUnlockSlider() {
   const [isHeartExpanding, setIsHeartExpanding] = useState(false)
   const [showHeartBoxShadow, setShowHeartBoxShadow] = useState(false)
   const [startOuterProgress, setStartOuterProgress] = useState(false)
+  const [showOuterFrameFinish, setShowOuterFrameFinish] = useState(false)
   const [typedTitle, setTypedTitle] = useState('')
   const [typedNote, setTypedNote] = useState('')
   const [{ dragY, baseY, foregroundOpacity, heartScale, heartX, scale }, api] = useSpring(() => ({
@@ -74,7 +75,7 @@ export function CuteUnlockSlider() {
       opacity: startOuterProgress ? 1 : 0,
       strokeDashoffset: startOuterProgress ? 0 : 6000,
     },
-    config: { duration: 4500, easing: easings.easeInOutCubic },
+    config: { duration: 8000, easing: easings.easeInOutCubic },
     // หัวเส้นเห็นทันทีตอนเริ่มพิมพ์ ส่วนความยาวเส้นค่อย ๆ วิ่งรอบกรอบ
     immediate: (key) => key === 'opacity',
   })
@@ -84,8 +85,13 @@ export function CuteUnlockSlider() {
       opacity: startOuterProgress ? 1 : 0,
       strokeDashoffset: startOuterProgress ? 0 : 4000,
     },
-    config: { duration: 4500, easing: easings.easeInOutCubic },
+    config: { duration: 8000, easing: easings.easeInOutCubic },
     immediate: (key) => key === 'opacity',
+  })
+  // แสดงพื้นกรอบและเงาเมื่อ Typewriter กับเส้นกรอบวาดจบครบทั้งหมดแล้ว
+  const outerFrameFinishStyle = useSpring({
+    opacity: showOuterFrameFinish ? 1 : 0,
+    config: { duration: 650, easing: easings.easeOutCubic },
   })
   const glassHighlight = useSpring({
     from: { opacity: 0, x: -140 },
@@ -208,6 +214,14 @@ export function CuteUnlockSlider() {
     }
   }, [showHeartBoxShadow])
 
+  // ข้อความยาวกว่าแอนิเมชันเส้นกรอบ จึงถือว่าเป็นจังหวะสุดท้ายของทั้ง sequence
+  useEffect(() => {
+    if (typedNote !== NOTE_TEXT) return
+
+    const finishTimer = window.setTimeout(() => setShowOuterFrameFinish(true), 120)
+    return () => window.clearTimeout(finishTimer)
+  }, [typedNote])
+
   // Glow และ halo เริ่มพร้อม Typewriter และจบครบใน 900ms
   useEffect(() => {
     if (!showTopEffects) return
@@ -288,6 +302,18 @@ export function CuteUnlockSlider() {
         ))}
       </div>
       {showHeartBoxShadow && (
+        <animated.div
+          className="pointer-events-none absolute left-1/2 top-1 z-[1] w-[calc(100%+1rem)] max-w-[22rem] -translate-x-1/2 rounded-[2.45rem] shadow-[0_28px_62px_rgba(190,24,93,0.28),0_8px_22px_rgba(236,72,153,0.2)]"
+          style={{
+            height: 'calc(min(20rem, 100vw - 2rem) + 24.75rem)',
+            opacity: outerFrameFinishStyle.opacity,
+            backgroundImage:
+              'radial-gradient(circle at 12% 10%, rgba(253, 164, 196, 0.55) 0%, rgba(253, 164, 196, 0) 43%), radial-gradient(circle at 88% 90%, rgba(249, 168, 212, 0.52) 0%, rgba(249, 168, 212, 0) 48%), linear-gradient(145deg, #fffdfd 0%, #ffeaf3 36%, #ffffff 59%, #ffe7f1 100%)',
+          }}
+          aria-hidden="true"
+        />
+      )}
+      {showHeartBoxShadow && (
         <animated.svg
           className="pointer-events-none absolute left-1/2 top-1 z-[6] w-[calc(100%+1rem)] max-w-[22rem] -translate-x-1/2 overflow-visible"
           style={{ height: 'calc(min(20rem, 100vw - 2rem) + 24.75rem)' }}
@@ -295,6 +321,25 @@ export function CuteUnlockSlider() {
           preserveAspectRatio="none"
           aria-hidden="true"
         >
+          <defs>
+            {/* เงา SVG แยกจาก CSS เพื่อให้เบราว์เซอร์บนมือถือแสดงเงารอบเส้นได้แน่นอน */}
+            <filter id="outer-frame-finish-shadow" x="-12%" y="-12%" width="124%" height="132%">
+              <feDropShadow dx="0" dy="4" stdDeviation="3" floodColor="#f472a4" floodOpacity="0.9" />
+              <feDropShadow dx="0" dy="18" stdDeviation="13" floodColor="#9d174d" floodOpacity="0.5" />
+            </filter>
+          </defs>
+          {showOuterFrameFinish && (
+            <animated.path
+              d="M 105 5 H 895 Q 995 5 995 105 V 1895 Q 995 1995 895 1995 H 105 Q 5 1995 5 1895 V 105 Q 5 5 105 5 Z"
+              fill="none"
+              stroke="#fda4c4"
+              strokeWidth="6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              filter="url(#outer-frame-finish-shadow)"
+              style={{ opacity: outerFrameFinishStyle.opacity }}
+            />
+          )}
           <animated.path
             d="M 105 5 H 895 Q 995 5 995 105 V 1895 Q 995 1995 895 1995 H 105 Q 5 1995 5 1895 V 105 Q 5 5 105 5 Z"
             fill="none"
@@ -321,7 +366,7 @@ export function CuteUnlockSlider() {
         <animated.div
           ref={baseCardRef}
           style={{ background: BACKGROUND, y: baseY }}
-          className="absolute inset-0 z-10 grid touch-none select-none items-center overflow-visible rounded-2xl px-8 shadow-xl shadow-blossom-500/30"
+          className="absolute inset-0 z-10 grid touch-none select-none items-center overflow-visible rounded-2xl px-8 shadow-[0_18px_34px_rgba(190,24,93,0.34),0_5px_12px_rgba(251,113,160,0.2)]"
         >
           {showHeartBoxShadow && (
             <animated.svg className="pointer-events-none absolute inset-0 z-20 h-full w-full overflow-visible" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
@@ -405,7 +450,7 @@ export function CuteUnlockSlider() {
             <animated.div
               style={heartBoxStyle}
               className={`absolute inset-0 overflow-hidden border-[4px] border-transparent ${
-                showHeartBoxShadow ? 'shadow-[0_24px_48px_rgba(190,24,93,0.28)]' : ''
+                showHeartBoxShadow ? 'shadow-[0_22px_44px_rgba(190,24,93,0.38),0_7px_16px_rgba(251,113,160,0.18)]' : ''
               }`}
             >
               <img
@@ -437,7 +482,7 @@ export function CuteUnlockSlider() {
                 opacity: notebookStyle.opacity,
                 transform: notebookStyle.scaleX.to((value) => `scaleX(${value})`),
               }}
-              className="relative mt-6 h-[200px] w-full origin-left overflow-hidden rounded-[1.4rem] border-[4px] border-transparent bg-pink-100 shadow-[0_14px_28px_rgba(190,24,93,0.2)]"
+              className="relative mt-6 h-[200px] w-full origin-left overflow-hidden rounded-[1.4rem] border-[4px] border-transparent bg-pink-100 shadow-[0_18px_36px_rgba(190,24,93,0.34),0_6px_14px_rgba(251,113,160,0.18)]"
             >
               <img
                 src={notebookCard}
