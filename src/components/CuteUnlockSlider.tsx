@@ -1,10 +1,26 @@
 import { useEffect, useRef, useState } from 'react'
 import { animated, easings, useSpring, useSprings } from '@react-spring/web'
 import { useDrag } from '@use-gesture/react'
+import anniversaryPhoto from '../assets/anniversary-photo.jpg'
+import notebookCard from '../assets/notebook-card.png'
 
 const BACKGROUND = 'linear-gradient(120deg, #f9a8c3 0%, #ec5f8f 100%)'
 const ANNIVERSARY_TITLE = 'Happy Anniversary 3Years'
 const HEART_MOVE_DURATION = 900
+const NOTE_TEXT = [
+  'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod',
+  'tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim',
+  'veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex',
+  'ea commodo consequat. Duis aute irure dolor in reprehenderit in',
+  'voluptate velit esse cillum dolore eu fugiat nulla pariatur, excepteur',
+  'sint occaecat cupidatat non proident, sunt in culpa qui officia',
+  'deserunt mollit anim id est laborum. Curabitur vitae neque vitae',
+  'nibh viverra aliquet, sed tincidunt nisi convallis. Integer posuere',
+  'velit sed neque viverra, eu suscipit ligula tristique. Nulla facilisi,',
+  'morbi volutpat lacus sed eros feugiat, at tincidunt tellus pretium.',
+  'Praesent eget augue vel magna ultrices venenatis sed at sapien.',
+  'Maecenas tempor lorem quis felis congue, in dictum nibh placerat.',
+].join('\n')
 const SPARKLE_TRAIL = [
   { x: -70, y: 34, delay: 0, size: 'text-sm' },
   { x: -34, y: 72, delay: 50, size: 'text-base' },
@@ -21,7 +37,10 @@ export function CuteUnlockSlider() {
   const [showUnderline, setShowUnderline] = useState(false)
   const [showFallingHeart, setShowFallingHeart] = useState(false)
   const [showHeartBox, setShowHeartBox] = useState(false)
+  const [isHeartExpanding, setIsHeartExpanding] = useState(false)
+  const [showHeartBoxShadow, setShowHeartBoxShadow] = useState(false)
   const [typedTitle, setTypedTitle] = useState('')
+  const [typedNote, setTypedNote] = useState('')
   const [{ dragY, baseY, foregroundOpacity, heartScale, heartX, scale }, api] = useSpring(() => ({
     dragY: 0,
     baseY: 0,
@@ -43,6 +62,11 @@ export function CuteUnlockSlider() {
     scale: 0.15,
     borderRadius: '999px',
   }))
+  const notebookStyle = useSpring({
+    opacity: showHeartBoxShadow ? 1 : 0,
+    scaleX: showHeartBoxShadow ? 1 : 0.08,
+    config: { duration: 1000, easing: easings.easeOutCubic },
+  })
   const glassHighlight = useSpring({
     from: { opacity: 0, x: -140 },
     to: showTopEffects ? { opacity: 0.32, x: 390 } : { opacity: 0, x: -140 },
@@ -116,12 +140,16 @@ export function CuteUnlockSlider() {
           y: travelDistance,
           scale: 1,
           rotate: 0,
-          config: { duration: 2000, easing: easings.easeInOutCubic },
+          // เริ่มเคลื่อนทันทีหลัง Typewriter จบ แล้วค่อยชะลอนุ่ม ๆ เมื่อถึงปลายทาง
+          config: { duration: 1200, easing: easings.easeOutQuad },
         })
 
         // หัวใจถึงกลางพื้นที่รูปแล้ว จึงขยายต่อเป็นกล่องสี่เหลี่ยม
+        // ปลด mask ก่อนขยาย เพื่อไม่ให้เกิดขอบสี่เหลี่ยมตัดหัวใจระหว่าง transition
+        setIsHeartExpanding(true)
+        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
         setShowHeartBox(true)
-        void heartBoxApi.start({
+        const expandHeartBox = heartBoxApi.start({
           from: { opacity: 0, scale: 0.15, borderRadius: '999px' },
           to: { opacity: 1, scale: 1, borderRadius: '1.5rem' },
           config: { duration: 650, easing: easings.easeOutCubic },
@@ -131,9 +159,32 @@ export function CuteUnlockSlider() {
           scale: 6,
           config: { duration: 650, easing: easings.easeOutCubic },
         })
+        await expandHeartBox
+        setShowHeartBoxShadow(true)
       },
     })
   }, [fallingHeartApi, heartBoxApi, typedTitle])
+
+  // เริ่มพิมพ์หลังสมุดกางครบ เพื่อให้ข้อความไม่แย่งจังหวะของ animation
+  useEffect(() => {
+    if (!showHeartBoxShadow) return
+
+    setTypedNote('')
+    const characterDelay = 18
+    const timerIds: number[] = []
+    const startTimer = window.setTimeout(() => {
+      NOTE_TEXT.split('').forEach((_, index) => {
+        timerIds.push(window.setTimeout(() => {
+          setTypedNote(NOTE_TEXT.slice(0, index + 1))
+        }, (index + 1) * characterDelay))
+      })
+    }, 1000)
+
+    return () => {
+      window.clearTimeout(startTimer)
+      timerIds.forEach((timerId) => window.clearTimeout(timerId))
+    }
+  }, [showHeartBoxShadow])
 
   // Glow และ halo เริ่มพร้อม Typewriter และจบครบใน 900ms
   useEffect(() => {
@@ -214,6 +265,14 @@ export function CuteUnlockSlider() {
           </animated.span>
         ))}
       </div>
+      {showHeartBoxShadow && (
+        <div
+          className="pointer-events-none absolute left-1/2 top-1 z-[5] w-[calc(100%+1rem)] max-w-[22rem] -translate-x-1/2 rounded-[2.3rem] border-[3px] border-blossom-500 bg-transparent shadow-[0_0_0_2px_rgba(236,72,153,0.18),0_18px_38px_rgba(190,24,93,0.26)]"
+          style={{ height: 'calc(min(20rem, 100vw - 2rem) + 24.75rem)' }}
+          aria-hidden="true"
+        >
+        </div>
+      )}
       <div className="relative isolate z-30 h-28 w-full max-w-xs">
         <animated.span
           style={{ opacity: softGlow.opacity, scale: softGlow.scale, y: baseY }}
@@ -257,12 +316,14 @@ export function CuteUnlockSlider() {
           />
           {showFallingHeart && (
             <div
-              className="pointer-events-none absolute left-1/2 top-full z-20 ml-[-2.5rem] h-[calc(100vh-2rem)] w-20 overflow-hidden"
+              className={`pointer-events-none absolute left-1/2 top-full z-20 ml-[-2.5rem] h-[calc(100vh-2rem)] w-20 ${
+                isHeartExpanding ? 'overflow-visible' : 'overflow-hidden'
+              }`}
               aria-hidden="true"
             >
               <animated.span
                 style={fallingHeartStyle}
-                className="absolute left-1/2 top-0 -ml-6 select-none text-5xl leading-none drop-shadow-[0_8px_14px_rgba(190,24,93,0.4)]"
+                className="absolute left-1/2 top-0 -ml-6 select-none text-5xl leading-none"
               >
                 💗
               </animated.span>
@@ -284,13 +345,45 @@ export function CuteUnlockSlider() {
       </div>
       {showHeartBox && (
         <div
-          className="pointer-events-none absolute left-1/2 top-40 z-10 aspect-square w-[calc(100vw-2rem)] max-w-xs -translate-x-1/2"
+          className="pointer-events-none absolute left-1/2 top-40 z-10 w-[calc(100vw-2rem)] max-w-xs -translate-x-1/2"
           aria-hidden="true"
         >
-          <animated.div
-            style={heartBoxStyle}
-            className="absolute inset-0 bg-gradient-to-br from-pink-100 via-blossom-300 to-blossom-500 shadow-[0_24px_48px_rgba(190,24,93,0.25)]"
-          />
+          <div className="relative aspect-square w-full">
+            <animated.div
+              style={heartBoxStyle}
+              className={`absolute inset-0 overflow-hidden border-[4px] border-blossom-300 ${
+                showHeartBoxShadow ? 'shadow-[0_24px_48px_rgba(190,24,93,0.28)]' : ''
+              }`}
+            >
+              <img
+                src={anniversaryPhoto}
+                alt="Anniversary memory"
+                className="h-full w-full object-cover"
+              />
+            </animated.div>
+          </div>
+
+          {showHeartBoxShadow && (
+            <animated.section
+              style={{
+                opacity: notebookStyle.opacity,
+                transform: notebookStyle.scaleX.to((value) => `scaleX(${value})`),
+              }}
+              className="relative mt-6 h-[200px] w-full origin-left overflow-hidden rounded-[1.4rem] border-[4px] border-blossom-300 bg-pink-100 shadow-[0_14px_28px_rgba(190,24,93,0.2)] outline outline-2 outline-pink-200 outline-offset-[-9px]"
+            >
+              <img
+                src={notebookCard}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover contrast-[1.1] saturate-[1.15]"
+              />
+              <p className="absolute left-[10%] right-[6%] top-[11.5%] z-10 whitespace-pre-wrap font-sans text-[clamp(0.35rem,1.6vw,0.45rem)] font-medium leading-[12.4px] tracking-[-0.01em] text-pink-700">
+                {typedNote}
+                {typedNote && typedNote.length < NOTE_TEXT.length && (
+                  <span className="cursor-blink ml-px text-pink-500">|</span>
+                )}
+              </p>
+            </animated.section>
+          )}
         </div>
       )}
     </main>
