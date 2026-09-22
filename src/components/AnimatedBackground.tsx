@@ -1,22 +1,16 @@
 import { animated, useSpring, useSprings } from '@react-spring/web'
 
-export type BackgroundPhase = 'loading' | 'one' | 'two' | 'three' | 'home'
+export type BackgroundPhase = 'loading' | 'home'
 
 type AnimatedBackgroundProps = {
   phase: BackgroundPhase
 }
 
-const PHASES: BackgroundPhase[] = ['loading', 'one', 'two', 'three', 'home']
+const PHASES: BackgroundPhase[] = ['loading', 'home']
 
 const GRADIENTS: Record<BackgroundPhase, string> = {
   loading:
     'radial-gradient(circle at 50% 42%, rgba(255,255,255,0.8), transparent 32%), linear-gradient(135deg, #ffe4ee, #fbcfe8, #f9a8c3)',
-  one:
-    'radial-gradient(circle at 50% 42%, rgba(255,255,255,0.86), transparent 30%), linear-gradient(135deg, #fff1f6, #fce7f3, #fbcfe8)',
-  two:
-    'radial-gradient(circle at 50% 42%, rgba(255,255,255,0.82), transparent 30%), linear-gradient(135deg, #ffe4ee, #fce7f3, #f9a8c3)',
-  three:
-    'radial-gradient(circle at 50% 42%, rgba(255,255,255,0.84), transparent 30%), linear-gradient(135deg, #fff1f6, #fecdd3, #f9a8c3)',
   home:
     'radial-gradient(circle at 50% 44%, rgba(255,255,255,0.9), transparent 32%), linear-gradient(135deg, #fff1f6, #ffe4ee, #fce7f3)',
 }

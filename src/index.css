@@ -17,3 +17,79 @@
     @apply m-0 min-w-80 bg-blossom-50 font-sans text-blossom-900 antialiased;
   }
 }
+
+/* อนุภาค 💕✦ ปลิวออก + จาง + หดตัว (ตอนปัดการ์ด) */
+.particle-fly {
+  animation: particle-fly-out ease-out forwards;
+}
+
+@keyframes particle-fly-out {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--tx, 0px)),
+        calc(-50% + var(--ty, 0px))
+      )
+      scale(0.2)
+      rotate(60deg);
+  }
+}
+
+/* 🌸 ลมพัดหัวใจ + ดาว — ลอยจากซ้ายไปขวา ตกลงธรรมชาติ */
+.wind-particle {
+  animation: wind-drift ease-in-out forwards;
+}
+
+@keyframes wind-drift {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4) rotate(0deg);
+  }
+  15% {
+    opacity: var(--peak-opacity, 0.5);
+    transform: translate(
+        calc(var(--dx, 100px) * 0.1),
+        calc(var(--dy, 50px) * 0.05)
+      )
+      scale(0.8)
+      rotate(calc(var(--rot, 20deg) * 0.3));
+  }
+  70% {
+    opacity: var(--peak-opacity, 0.5);
+    transform: translate(
+        calc(var(--dx, 100px) * 0.7),
+        calc(var(--dy, 50px) * 0.6)
+      )
+      scale(1)
+      rotate(calc(var(--rot, 20deg) * 0.8));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx, 100px), var(--dy, 50px))
+      scale(0.5)
+      rotate(var(--rot, 20deg));
+  }
+}
+
+/* 🩷 Cute falling particles (หน้า CuteUnlockSlider) */
+@keyframes cute-fall {
+  0% {
+    transform: translate3d(0, -8vh, 0) rotate(-12deg) scale(0.7);
+  }
+  55% {
+    transform: translate3d(14px, 54vh, 0) rotate(115deg) scale(1);
+  }
+  100% {
+    transform: translate3d(-10px, 114vh, 0) rotate(230deg) scale(0.84);
+  }
+}
+
+.cute-falling-particle {
+  animation-name: cute-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}

@@ -2,24 +2,16 @@ import { useEffect, useRef, useState } from 'react'
 import { animated, easings, useSpring, useSprings } from '@react-spring/web'
 import { useDrag } from '@use-gesture/react'
 import anniversaryPhoto from '../assets/anniversary-photo.jpg'
-import notebookCard from '../assets/notebook-card.png'
+import notebookCard from '../assets/notebook-card-blank.png'
 
 const BACKGROUND = 'linear-gradient(120deg, #f9a8c3 0%, #ec5f8f 100%)'
 const ANNIVERSARY_TITLE = 'Happy Anniversary 3Years'
 const HEART_MOVE_DURATION = 900
 const NOTE_TEXT = [
-  'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod',
-  'tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim',
-  'veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex',
-  'ea commodo consequat. Duis aute irure dolor in reprehenderit in',
-  'voluptate velit esse cillum dolore eu fugiat nulla pariatur, excepteur',
-  'sint occaecat cupidatat non proident, sunt in culpa qui officia',
-  'deserunt mollit anim id est laborum. Curabitur vitae neque vitae',
-  'nibh viverra aliquet, sed tincidunt nisi convallis. Integer posuere',
-  'velit sed neque viverra, eu suscipit ligula tristique. Nulla facilisi,',
-  'morbi volutpat lacus sed eros feugiat, at tincidunt tellus pretium.',
-  'Praesent eget augue vel magna ultrices venenatis sed at sapien.',
-  'Maecenas tempor lorem quis felis congue, in dictum nibh placerat.',
+  'Lorem ipsum dolor sit amet.',
+  'Consectetur adipiscing elit.',
+  'A little note written with love.',
+  'Happy anniversary, always. ♡',
 ].join('\n')
 const SPARKLE_TRAIL = [
   { x: -70, y: 34, delay: 0, size: 'text-sm' },
@@ -191,28 +183,36 @@ export function CuteUnlockSlider() {
     })
   }, [fallingHeartApi, heartBoxApi, typedTitle])
 
-  // เริ่มพิมพ์หลังสมุดกางครบ เพื่อให้ข้อความไม่แย่งจังหวะของ animation
+  // เส้นกรอบเริ่มวิ่งก่อน → Typewriter เริ่มที่ 4.5 วิ (เส้นวิ่งได้ครึ่งทาง)
   useEffect(() => {
     if (!showHeartBoxShadow) return
 
     setTypedNote('')
+    const TYPEWRITER_START = 3500
     const characterDelay = 18
     const timerIds: number[] = []
-    const startTimer = window.setTimeout(() => {
-      // เส้นกรอบนอกเริ่มเติมพร้อมตัวอักษรตัวแรก
+
+    // เริ่มเส้นกรอบวิ่ง (หลังสมุดกางครบ 1 วิ)
+    const strokeTimer = window.setTimeout(() => {
       setStartOuterProgress(true)
+    }, 1000)
+
+    // Typewriter เริ่มตอนเส้นวิ่งได้ประมาณครึ่งทาง
+    const typewriterTimer = window.setTimeout(() => {
       NOTE_TEXT.split('').forEach((_, index) => {
         timerIds.push(window.setTimeout(() => {
           setTypedNote(NOTE_TEXT.slice(0, index + 1))
         }, (index + 1) * characterDelay))
       })
-    }, 1000)
+    }, 1000 + TYPEWRITER_START)
 
     return () => {
-      window.clearTimeout(startTimer)
+      window.clearTimeout(strokeTimer)
+      window.clearTimeout(typewriterTimer)
       timerIds.forEach((timerId) => window.clearTimeout(timerId))
     }
   }, [showHeartBoxShadow])
+
 
   // ข้อความยาวกว่าแอนิเมชันเส้นกรอบ จึงถือว่าเป็นจังหวะสุดท้ายของทั้ง sequence
   useEffect(() => {
@@ -303,7 +303,7 @@ export function CuteUnlockSlider() {
       </div>
       {showHeartBoxShadow && (
         <animated.div
-          className="pointer-events-none absolute left-1/2 top-1 z-[1] w-[calc(100%+1rem)] max-w-[22rem] -translate-x-1/2 rounded-[2.45rem] shadow-[0_28px_62px_rgba(190,24,93,0.28),0_8px_22px_rgba(236,72,153,0.2)]"
+          className="pointer-events-none absolute left-1/2 top-1 z-[1] w-[calc(100%+1rem)] max-w-[22rem] -translate-x-1/2 rounded-[2.45rem] shadow-md"
           style={{
             height: 'calc(min(20rem, 100vw - 2rem) + 24.75rem)',
             opacity: outerFrameFinishStyle.opacity,
@@ -336,7 +336,7 @@ export function CuteUnlockSlider() {
               strokeWidth="6"
               strokeLinecap="round"
               strokeLinejoin="round"
-              filter="url(#outer-frame-finish-shadow)"
+
               style={{ opacity: outerFrameFinishStyle.opacity }}
             />
           )}
@@ -349,10 +349,7 @@ export function CuteUnlockSlider() {
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeDasharray="6000 6000"
-            style={{
-              ...outerProgressStyle,
-              filter: 'drop-shadow(0 0 5px rgba(236, 72, 153, 0.68)) drop-shadow(0 12px 18px rgba(190, 24, 93, 0.24))',
-            }}
+            style={outerProgressStyle}
           />
         </animated.svg>
       )}
@@ -366,7 +363,7 @@ export function CuteUnlockSlider() {
         <animated.div
           ref={baseCardRef}
           style={{ background: BACKGROUND, y: baseY }}
-          className="absolute inset-0 z-10 grid touch-none select-none items-center overflow-visible rounded-2xl px-8 shadow-[0_18px_34px_rgba(190,24,93,0.34),0_5px_12px_rgba(251,113,160,0.2)]"
+          className="absolute inset-0 z-10 grid touch-none select-none items-center overflow-visible rounded-2xl px-8 shadow-lg"
         >
           {showHeartBoxShadow && (
             <animated.svg className="pointer-events-none absolute inset-0 z-20 h-full w-full overflow-visible" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
@@ -379,7 +376,7 @@ export function CuteUnlockSlider() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeDasharray="4000 4000"
-                style={{ ...cardProgressStyle, filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.52))' }}
+                style={cardProgressStyle}
               />
             </animated.svg>
           )}
@@ -449,8 +446,8 @@ export function CuteUnlockSlider() {
           <div className="relative aspect-square w-full">
             <animated.div
               style={heartBoxStyle}
-              className={`absolute inset-0 overflow-hidden border-[4px] border-transparent ${
-                showHeartBoxShadow ? 'shadow-[0_22px_44px_rgba(190,24,93,0.38),0_7px_16px_rgba(251,113,160,0.18)]' : ''
+              className={`absolute inset-0 overflow-hidden border-[4px] border-transparent transition-shadow duration-700 ease-out ${
+                showOuterFrameFinish ? 'shadow-lg' : ''
               }`}
             >
               <img
@@ -470,7 +467,7 @@ export function CuteUnlockSlider() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeDasharray="4000 4000"
-                  style={{ ...cardProgressStyle, filter: 'drop-shadow(0 0 4px rgba(236,72,153,0.62))' }}
+                  style={cardProgressStyle}
                 />
               </animated.svg>
             )}
@@ -482,7 +479,9 @@ export function CuteUnlockSlider() {
                 opacity: notebookStyle.opacity,
                 transform: notebookStyle.scaleX.to((value) => `scaleX(${value})`),
               }}
-              className="relative mt-6 h-[200px] w-full origin-left overflow-hidden rounded-[1.4rem] border-[4px] border-transparent bg-pink-100 shadow-[0_18px_36px_rgba(190,24,93,0.34),0_6px_14px_rgba(251,113,160,0.18)]"
+              className={`relative mt-6 h-[200px] w-full origin-left overflow-hidden rounded-[1.4rem] border-[4px] border-transparent bg-pink-100 transition-shadow duration-700 ease-out ${
+                showOuterFrameFinish ? 'shadow-md' : ''
+              }`}
             >
               <img
                 src={notebookCard}
@@ -499,10 +498,10 @@ export function CuteUnlockSlider() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeDasharray="4000 4000"
-                  style={{ ...cardProgressStyle, filter: 'drop-shadow(0 0 4px rgba(236,72,153,0.62))' }}
+                  style={cardProgressStyle}
                 />
               </animated.svg>
-              <p className="absolute left-[10%] right-[6%] top-[11.5%] z-10 whitespace-pre-wrap font-sans text-[clamp(0.35rem,1.6vw,0.45rem)] font-medium leading-[12.4px] tracking-[-0.01em] text-pink-700">
+              <p className="absolute inset-x-[10%] top-1/2 z-10 -translate-y-1/2 whitespace-pre-wrap text-center font-sans text-[clamp(0.85rem,3.5vw,1.1rem)] font-medium leading-[23px] tracking-[-0.01em] text-pink-700">
                 {typedNote}
                 {typedNote && typedNote.length < NOTE_TEXT.length && (
                   <span className="cursor-blink ml-px text-pink-500">|</span>
