@@ -4,6 +4,8 @@ import { useDrag } from '@use-gesture/react'
 import anniversaryPhoto from '../assets/anniversary-photo.jpg'
 import { SwipeParticles, type SwipeParticlesHandle } from './SwipeParticles'
 import { playWhoosh, playSparkle, playFlip } from '../utils/sounds'
+import type { ColorTheme } from '../utils/colorTheme'
+import { DEFAULT_THEME } from '../utils/colorTheme'
 
 // เปลี่ยนรูปแต่ละใบได้ที่นี่ — ตอนนี้ใช้รูปเดียวกัน 3 ใบเป็น placeholder
 const CARDS = [
@@ -44,10 +46,14 @@ const cardTrans = (r: number, s: number, fy: number, tx: number) =>
 const TRAIL_INTERVAL = 80
 
 type CardStackProps = {
+  cardImages?: string[]
+  colors?: ColorTheme
   onComplete?: () => void
 }
 
-export function CardStack({ onComplete }: CardStackProps) {
+export function CardStack({ cardImages, colors, onComplete }: CardStackProps) {
+  const clr = colors ?? DEFAULT_THEME
+  const cards = cardImages ?? CARDS
   const [gone] = useState(() => new Set<number>())
   const isTransitioning = useRef(false)
   const [flippingIndex, setFlippingIndex] = useState<number | null>(null)
@@ -71,7 +77,7 @@ export function CardStack({ onComplete }: CardStackProps) {
     timerIds.current.add(id)
   }
 
-  const [props, api] = useSprings(CARDS.length, (i) => ({
+  const [props, api] = useSprings(cards.length, (i) => ({
     ...toSpring(i),
     from: fromSpring(),
   }))
@@ -105,7 +111,7 @@ export function CardStack({ onComplete }: CardStackProps) {
 
       // ตรวจว่าใบนี้เป็นใบสุดท้ายที่เหลือมั้ย (ตรวจก่อน add to gone)
       const isLastCard =
-        gone.size === CARDS.length - 1 && !gone.has(index)
+        gone.size === cards.length - 1 && !gone.has(index)
 
       // การ์ดปลิวออก → burst + เสียง whoosh/sparkle (ทุกใบรวมใบสุดท้าย)
       if (!active && trigger) {
@@ -223,16 +229,19 @@ export function CardStack({ onComplete }: CardStackProps) {
           >
             {/* ด้านหน้า — รูปภาพ */}
             <div
-              className="absolute inset-0 rounded-2xl border-4 border-white/70 bg-cover bg-center shadow-[0_18px_34px_rgba(190,24,93,0.34),0_5px_12px_rgba(251,113,160,0.2)]"
+              className="absolute inset-0 rounded-2xl border-4 bg-cover bg-center shadow-lg"
               style={{
-                backgroundImage: `url(${CARDS[i]})`,
+                borderColor: clr.cardBorder,
+                backgroundImage: `url(${cards[i]})`,
                 backfaceVisibility: 'hidden',
               }}
+
             />
             {/* ด้านหลัง — Unlock Slider preview (เริ่มซ่อนไว้ด้วย rotateY 180°) */}
             <div
-              className="absolute inset-0 grid place-items-center rounded-2xl bg-blossom-700 text-center text-xl font-bold text-white shadow-2xl shadow-blossom-900/30 sm:text-2xl"
+              className="absolute inset-0 grid place-items-center rounded-2xl text-center text-xl font-bold text-white shadow-2xl sm:text-2xl"
               style={{
+                backgroundColor: clr.foregroundBg,
                 backfaceVisibility: 'hidden',
                 transform: 'rotateY(180deg)',
               }}

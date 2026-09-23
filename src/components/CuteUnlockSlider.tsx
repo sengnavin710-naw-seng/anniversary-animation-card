@@ -3,8 +3,10 @@ import { animated, easings, useSpring, useSprings } from '@react-spring/web'
 import { useDrag } from '@use-gesture/react'
 import anniversaryPhoto from '../assets/anniversary-photo.jpg'
 import notebookCard from '../assets/notebook-card-blank.png'
+import type { ColorTheme } from '../utils/colorTheme'
+import { DEFAULT_THEME } from '../utils/colorTheme'
 
-const BACKGROUND = 'linear-gradient(120deg, #f9a8c3 0%, #ec5f8f 100%)'
+// BACKGROUND is now derived from colors prop
 const ANNIVERSARY_TITLE = 'Happy Anniversary 3Years'
 const HEART_MOVE_DURATION = 900
 const NOTE_TEXT = [
@@ -21,7 +23,18 @@ const SPARKLE_TRAIL = [
   { x: 78, y: 42, delay: 200, size: 'text-base' },
 ]
 
-export function CuteUnlockSlider() {
+type CuteUnlockSliderProps = {
+  title?: string
+  noteText?: string
+  mainPhoto?: string
+  colors?: ColorTheme
+}
+
+export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
+  const actualTitle = props.title ?? ANNIVERSARY_TITLE
+  const actualNoteText = props.noteText ?? NOTE_TEXT
+  const actualPhoto = props.mainPhoto ?? anniversaryPhoto
+  const clr = props.colors ?? DEFAULT_THEME
   const baseCardRef = useRef<HTMLDivElement>(null)
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [showTitle, setShowTitle] = useState(false)
@@ -126,7 +139,7 @@ export function CuteUnlockSlider() {
   useEffect(() => {
     if (!showTitle) return
 
-    const characterDelay = HEART_MOVE_DURATION / ANNIVERSARY_TITLE.length
+    const characterDelay = HEART_MOVE_DURATION / actualTitle.length
     const timerIds = ANNIVERSARY_TITLE.split('').map((_, index) =>
       window.setTimeout(() => {
         setTypedTitle(ANNIVERSARY_TITLE.slice(0, index + 1))
@@ -199,9 +212,9 @@ export function CuteUnlockSlider() {
 
     // Typewriter เริ่มตอนเส้นวิ่งได้ประมาณครึ่งทาง
     const typewriterTimer = window.setTimeout(() => {
-      NOTE_TEXT.split('').forEach((_, index) => {
+      actualNoteText.split('').forEach((_, index) => {
         timerIds.push(window.setTimeout(() => {
-          setTypedNote(NOTE_TEXT.slice(0, index + 1))
+          setTypedNote(actualNoteText.slice(0, index + 1))
         }, (index + 1) * characterDelay))
       })
     }, 1000 + TYPEWRITER_START)
@@ -216,7 +229,7 @@ export function CuteUnlockSlider() {
 
   // ข้อความยาวกว่าแอนิเมชันเส้นกรอบ จึงถือว่าเป็นจังหวะสุดท้ายของทั้ง sequence
   useEffect(() => {
-    if (typedNote !== NOTE_TEXT) return
+    if (typedNote !== actualNoteText) return
 
     const finishTimer = window.setTimeout(() => setShowOuterFrameFinish(true), 120)
     return () => window.clearTimeout(finishTimer)
@@ -268,7 +281,14 @@ export function CuteUnlockSlider() {
       config: { duration: 350 },
     })
     const moveBaseCard = api.start({
-      baseY: -window.innerHeight / 2 + 88,
+      baseY: (() => {
+        const el = baseCardRef.current;
+        if (!el) return -window.innerHeight / 2 + 88;
+        const rect = el.getBoundingClientRect();
+        // Card bottom should sit just above image box (top-40 = 160px), with 12px gap
+        const targetBottom = 160 - 12;
+        return targetBottom - rect.bottom;
+      })(),
       config: { tension: 210, friction: 24 },
     })
 
@@ -324,15 +344,15 @@ export function CuteUnlockSlider() {
           <defs>
             {/* เงา SVG แยกจาก CSS เพื่อให้เบราว์เซอร์บนมือถือแสดงเงารอบเส้นได้แน่นอน */}
             <filter id="outer-frame-finish-shadow" x="-12%" y="-12%" width="124%" height="132%">
-              <feDropShadow dx="0" dy="4" stdDeviation="3" floodColor="#f472a4" floodOpacity="0.9" />
-              <feDropShadow dx="0" dy="18" stdDeviation="13" floodColor="#9d174d" floodOpacity="0.5" />
+              <feDropShadow dx="0" dy="4" stdDeviation="3" floodColor={clr.photoBorder} floodOpacity="0.9" />
+              <feDropShadow dx="0" dy="18" stdDeviation="13" floodColor={clr.titleCardBg} floodOpacity="0.5" />
             </filter>
           </defs>
           {showOuterFrameFinish && (
             <animated.path
               d="M 105 5 H 895 Q 995 5 995 105 V 1895 Q 995 1995 895 1995 H 105 Q 5 1995 5 1895 V 105 Q 5 5 105 5 Z"
               fill="none"
-              stroke="#fda4c4"
+              stroke={clr.photoBorder}
               strokeWidth="6"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -343,7 +363,7 @@ export function CuteUnlockSlider() {
           <animated.path
             d="M 105 5 H 895 Q 995 5 995 105 V 1895 Q 995 1995 895 1995 H 105 Q 5 1995 5 1895 V 105 Q 5 5 105 5 Z"
             fill="none"
-            stroke="#ec5f8f"
+            stroke={clr.titleCardBg}
             strokeWidth="4"
             vectorEffect="non-scaling-stroke"
             strokeLinecap="round"
@@ -355,14 +375,14 @@ export function CuteUnlockSlider() {
       )}
       <div className="relative isolate z-30 h-28 w-full max-w-xs">
         <animated.span
-          style={{ opacity: softGlow.opacity, scale: softGlow.scale, y: baseY }}
-          className="pointer-events-none absolute -inset-x-5 -inset-y-4 z-0 rounded-[2rem] bg-gradient-to-r from-white/50 via-blossom-300/60 to-pink-200/50 blur-2xl"
+          style={{ opacity: softGlow.opacity, scale: softGlow.scale, y: baseY, background: `linear-gradient(to right, rgba(255,255,255,0.5), ${clr.titleCardBg}60, ${clr.bgTo}50)` }}
+          className="pointer-events-none absolute -inset-x-5 -inset-y-4 z-0 rounded-[2rem] blur-2xl"
           aria-hidden="true"
         />
         {/* การ์ดฐาน: จะเป็นเพียงชั้นที่เลื่อนขึ้นหลังปลดล็อก */}
         <animated.div
           ref={baseCardRef}
-          style={{ background: BACKGROUND, y: baseY }}
+          style={{ background: `linear-gradient(120deg, ${clr.titleCardBg}88 0%, ${clr.titleCardBg} 100%)`, y: baseY }}
           className="absolute inset-0 z-10 grid touch-none select-none items-center overflow-visible rounded-2xl px-8 shadow-lg"
         >
           {showHeartBoxShadow && (
@@ -370,7 +390,7 @@ export function CuteUnlockSlider() {
               <animated.path
                 d="M 105 5 H 895 Q 995 5 995 105 V 895 Q 995 995 895 995 H 105 Q 5 995 5 895 V 105 Q 5 5 105 5 Z"
                 fill="none"
-                stroke="#ffd1e4"
+                stroke={clr.photoBorder}
                 strokeWidth="3"
                 vectorEffect="non-scaling-stroke"
                 strokeLinecap="round"
@@ -429,8 +449,8 @@ export function CuteUnlockSlider() {
         {/* การ์ดชั้นหน้า: ผู้ใช้ลากลงได้ และจะ fade เมื่อปลดล็อกสำเร็จ */}
         <animated.div
           {...bind()}
-          style={{ y: dragY, scale, opacity: foregroundOpacity }}
-          className="absolute inset-0 z-20 grid cursor-grab touch-none select-none place-items-center rounded-2xl bg-blossom-700 text-center text-xl font-bold text-white shadow-2xl shadow-blossom-900/30 active:cursor-grabbing sm:text-2xl"
+          style={{ y: dragY, scale, opacity: foregroundOpacity, backgroundColor: clr.foregroundBg }}
+          className="absolute inset-0 z-20 grid cursor-grab touch-none select-none place-items-center rounded-2xl text-center text-xl font-bold text-white shadow-2xl active:cursor-grabbing sm:text-2xl"
         >
           <div className="pointer-events-none">
             <p className="font-display tracking-wide">Slide down to unlock ♡</p>
@@ -451,7 +471,7 @@ export function CuteUnlockSlider() {
               }`}
             >
               <img
-                src={anniversaryPhoto}
+                src={actualPhoto}
                 alt="Anniversary memory"
                 className="h-full w-full object-cover"
               />
@@ -461,7 +481,7 @@ export function CuteUnlockSlider() {
                 <animated.path
                   d="M 105 5 H 895 Q 995 5 995 105 V 895 Q 995 995 895 995 H 105 Q 5 995 5 895 V 105 Q 5 5 105 5 Z"
                   fill="none"
-                  stroke="#ec5f8f"
+                  stroke={clr.titleCardBg}
                   strokeWidth="4"
                   vectorEffect="non-scaling-stroke"
                   strokeLinecap="round"
@@ -492,7 +512,7 @@ export function CuteUnlockSlider() {
                 <animated.path
                   d="M 105 5 H 895 Q 995 5 995 105 V 895 Q 995 995 895 995 H 105 Q 5 995 5 895 V 105 Q 5 5 105 5 Z"
                   fill="none"
-                  stroke="#ec5f8f"
+                  stroke={clr.titleCardBg}
                   strokeWidth="4"
                   vectorEffect="non-scaling-stroke"
                   strokeLinecap="round"
@@ -503,7 +523,7 @@ export function CuteUnlockSlider() {
               </animated.svg>
               <p className="absolute inset-x-[10%] top-1/2 z-10 -translate-y-1/2 whitespace-pre-wrap text-center font-sans text-[clamp(0.85rem,3.5vw,1.1rem)] font-medium leading-[23px] tracking-[-0.01em] text-pink-700">
                 {typedNote}
-                {typedNote && typedNote.length < NOTE_TEXT.length && (
+                {typedNote && typedNote.length < actualNoteText.length && (
                   <span className="cursor-blink ml-px text-pink-500">|</span>
                 )}
               </p>

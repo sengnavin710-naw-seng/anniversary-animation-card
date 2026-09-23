@@ -1,22 +1,27 @@
 import { animated, useSpring, useSprings } from '@react-spring/web'
+import type { ColorTheme } from '../utils/colorTheme'
+import { DEFAULT_THEME } from '../utils/colorTheme'
 
 export type BackgroundPhase = 'loading' | 'home'
 
 type AnimatedBackgroundProps = {
   phase: BackgroundPhase
+  colors?: ColorTheme
 }
 
 const PHASES: BackgroundPhase[] = ['loading', 'home']
 
-const GRADIENTS: Record<BackgroundPhase, string> = {
-  loading:
-    'radial-gradient(circle at 50% 42%, rgba(255,255,255,0.8), transparent 32%), linear-gradient(135deg, #ffe4ee, #fbcfe8, #f9a8c3)',
-  home:
-    'radial-gradient(circle at 50% 44%, rgba(255,255,255,0.9), transparent 32%), linear-gradient(135deg, #fff1f6, #ffe4ee, #fce7f3)',
+function getGradients(c: ColorTheme): Record<BackgroundPhase, string> {
+  return {
+    loading: `radial-gradient(circle at 50% 42%, rgba(255,255,255,0.8), transparent 32%), linear-gradient(135deg, ${c.bgFrom}, ${c.bgTo})`,
+    home: `radial-gradient(circle at 50% 44%, rgba(255,255,255,0.9), transparent 32%), linear-gradient(135deg, ${c.bgFrom}, ${c.bgTo})`,
+  }
 }
 
-export function AnimatedBackground({ phase }: AnimatedBackgroundProps) {
-  // แต่ละ gradient crossfade กันบน layer เดิม จึงเปลี่ยน phase โดยไม่มีรอยต่อ
+export function AnimatedBackground({ phase, colors }: AnimatedBackgroundProps) {
+  const c = colors ?? DEFAULT_THEME
+  const gradients = getGradients(c)
+
   const layers = useSprings(
     PHASES.length,
     PHASES.map((item) => ({
@@ -39,7 +44,7 @@ export function AnimatedBackground({ phase }: AnimatedBackgroundProps) {
           key={PHASES[index]}
           style={{
             opacity: style.opacity,
-            backgroundImage: GRADIENTS[PHASES[index]],
+            backgroundImage: gradients[PHASES[index]],
             backgroundPosition: driftStyle.position,
             backgroundSize: '180% 180%',
           }}
