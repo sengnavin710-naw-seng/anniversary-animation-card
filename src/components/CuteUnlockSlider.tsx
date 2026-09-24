@@ -28,6 +28,7 @@ type CuteUnlockSliderProps = {
   noteText?: string
   mainPhoto?: string
   colors?: ColorTheme
+  initiallyUnlocked?: boolean
 }
 
 export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
@@ -35,25 +36,26 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
   const actualNoteText = props.noteText ?? NOTE_TEXT
   const actualPhoto = props.mainPhoto ?? anniversaryPhoto
   const clr = props.colors ?? DEFAULT_THEME
+  const initUnlocked = props.initiallyUnlocked ?? false
   const baseCardRef = useRef<HTMLDivElement>(null)
-  const [isUnlocked, setIsUnlocked] = useState(false)
-  const [showTitle, setShowTitle] = useState(false)
-  const [showTopEffects, setShowTopEffects] = useState(false)
-  const [showUnderline, setShowUnderline] = useState(false)
+  const [isUnlocked, setIsUnlocked] = useState(initUnlocked)
+  const [showTitle, setShowTitle] = useState(initUnlocked)
+  const [showTopEffects, setShowTopEffects] = useState(initUnlocked)
+  const [showUnderline, setShowUnderline] = useState(initUnlocked)
   const [showFallingHeart, setShowFallingHeart] = useState(false)
-  const [showHeartBox, setShowHeartBox] = useState(false)
-  const [isHeartExpanding, setIsHeartExpanding] = useState(false)
-  const [showHeartBoxShadow, setShowHeartBoxShadow] = useState(false)
-  const [startOuterProgress, setStartOuterProgress] = useState(false)
-  const [showOuterFrameFinish, setShowOuterFrameFinish] = useState(false)
-  const [typedTitle, setTypedTitle] = useState('')
-  const [typedNote, setTypedNote] = useState('')
+  const [showHeartBox, setShowHeartBox] = useState(initUnlocked)
+  const [isHeartExpanding, setIsHeartExpanding] = useState(initUnlocked)
+  const [showHeartBoxShadow, setShowHeartBoxShadow] = useState(initUnlocked)
+  const [startOuterProgress, setStartOuterProgress] = useState(initUnlocked)
+  const [showOuterFrameFinish, setShowOuterFrameFinish] = useState(initUnlocked)
+  const [typedTitle, setTypedTitle] = useState(initUnlocked ? actualTitle : '')
+  const [typedNote, setTypedNote] = useState(initUnlocked ? actualNoteText : '')
   const [{ dragY, baseY, foregroundOpacity, heartScale, heartX, scale }, api] = useSpring(() => ({
-    dragY: 0,
-    baseY: 0,
-    foregroundOpacity: 1,
-    heartScale: 0.5,
-    heartX: 0,
+    dragY: initUnlocked ? 500 : 0,
+    baseY: initUnlocked ? (40 - window.innerHeight / 2) : 0,
+    foregroundOpacity: initUnlocked ? 0 : 1,
+    heartScale: initUnlocked ? 1 : 0.5,
+    heartX: initUnlocked ? 216 : 0,
     scale: 1,
   }))
   const [haloStyle, haloApi] = useSpring(() => ({ opacity: 0, scale: 0.5 }))
@@ -65,9 +67,9 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
     rotate: 0,
   }))
   const [heartBoxStyle, heartBoxApi] = useSpring(() => ({
-    opacity: 0,
-    scale: 0.15,
-    borderRadius: '999px',
+    opacity: initUnlocked ? 1 : 0,
+    scale: initUnlocked ? 1 : 0.15,
+    borderRadius: initUnlocked ? '1rem' : '999px',
   }))
   const notebookStyle = useSpring({
     opacity: showHeartBoxShadow ? 1 : 0,

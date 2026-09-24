@@ -109,3 +109,24 @@ export const PRESET_THEMES: { name: string; emoji: string; theme: ColorTheme }[]
 ]
 
 export const DEFAULT_THEME: ColorTheme = PRESET_THEMES[0].theme
+
+// ─── Auto-generate full theme from a single primary color ────
+import chroma from 'chroma-js'
+
+export function generateThemeFromColor(primary: string): ColorTheme {
+  const base = chroma(primary)
+  const h = base.get('hsl.h') || 0
+
+  return {
+    bgFrom: chroma.hsl(h, 0.6, 0.95).hex(),
+    bgTo: chroma.hsl(h, 0.55, 0.85).hex(),
+    cardBorder: '#ffffff',
+    cardBg: base.luminance(0.35).hex(),
+    titleCardBg: base.hex(),
+    titleText: '#ffffff',
+    foregroundBg: base.darken(2).hex(),
+    photoBorder: base.luminance(0.25).hex(),
+    notebookBg: chroma.hsl(h, 0.6, 0.95).hex(),
+    noteText: base.darken(2.5).hex(),
+  }
+}
