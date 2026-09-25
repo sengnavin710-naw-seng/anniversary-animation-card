@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "anniversary-animation-card",
   "main": "worker.js",
-  "compatibility_date": "2026-09-26",
+  "compatibility_date": "2026-09-25",
   "keep_vars": true,
   "assets": {
     "directory": "./dist",
