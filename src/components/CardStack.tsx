@@ -3,7 +3,7 @@ import { useSprings, animated, to as interpolate } from '@react-spring/web'
 import { useDrag } from '@use-gesture/react'
 import anniversaryPhoto from '../assets/anniversary-photo.jpg'
 import { SwipeParticles, type SwipeParticlesHandle } from './SwipeParticles'
-import { playSparkle, playFlip } from '../utils/sounds'
+import { playSparkle, playFlip, playShrink } from '../utils/sounds'
 import type { ColorTheme } from '../utils/colorTheme'
 import { DEFAULT_THEME } from '../utils/colorTheme'
 
@@ -49,9 +49,10 @@ type CardStackProps = {
   cardImages?: string[]
   colors?: ColorTheme
   onComplete?: () => void
+  soundEnabled?: boolean
 }
 
-export function CardStack({ cardImages, colors, onComplete }: CardStackProps) {
+export function CardStack({ cardImages, colors, onComplete, soundEnabled = true }: CardStackProps) {
   const clr = colors ?? DEFAULT_THEME
   const cards = cardImages ?? CARDS
   const [gone] = useState(() => new Set<number>())
@@ -121,7 +122,7 @@ export function CardStack({ cardImages, colors, onComplete }: CardStackProps) {
           window.innerHeight / 2,
           10,
         )
-        playSparkle()
+        if (soundEnabled) playSparkle()
       }
 
       api.start((i) => {
@@ -178,10 +179,12 @@ export function CardStack({ cardImages, colors, onComplete }: CardStackProps) {
         }, 1300)
 
         // 🔊 เสียง flip — เล่นตอนการ์ดหมุนถึงจุดกลาง (~90°)
-        addTimer(() => playFlip(), 1500)
+        addTimer(() => { if (soundEnabled) playFlip() }, 1500)
 
         // Phase 3: พลิกเสร็จ → ย่อขนาดให้เท่า CuteUnlockSlider
         addTimer(() => {
+          // 🔊 เสียง shrink ตอนการ์ดย่อ
+          if (soundEnabled) playShrink()
           api.start((i) => {
             if (i !== index) return
             return {

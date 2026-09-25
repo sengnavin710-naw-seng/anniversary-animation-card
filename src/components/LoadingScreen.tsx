@@ -1,9 +1,13 @@
 import { animated, useSpring, useSprings } from '@react-spring/web'
 import { useEffect, useRef, useState } from 'react'
+import { playLoadingShimmer, playCompletionChime, playSwoosh } from '../utils/sounds'
 
 type LoadingScreenProps = {
   duration?: number
   onComplete?: () => void
+  fixedProgress?: number
+  soundEnabled?: boolean
+  orbitStarColor?: string
 }
 
 const SPARKLES = [
@@ -47,6 +51,9 @@ const BURST_DURATION = 600
 export function LoadingScreen({
   duration = 2300,
   onComplete,
+  fixedProgress,
+  soundEnabled = true,
+  orbitStarColor = '#fff2a8',
 }: LoadingScreenProps) {
   const [isLeaving, setIsLeaving] = useState(false)
   const [isCompleting, setIsCompleting] = useState(false)
@@ -55,9 +62,10 @@ export function LoadingScreen({
 
   // Spring นับ progress จาก 1 ถึง 100 และใช้ค่าเดียวกันขยายหัวใจอย่างต่อเนื่อง
   const progress = useSpring({
-    from: { value: 1 },
-    to: { value: 100 },
+    from: { value: fixedProgress ?? 1 },
+    to: { value: fixedProgress ?? 100 },
     config: { duration },
+    immediate: fixedProgress !== undefined,
   })
 
   // Glow แยก layer จากหัวใจ เพื่อให้หัวใจโตลื่นโดยไม่กระตุก
@@ -166,16 +174,27 @@ export function LoadingScreen({
 
   // เริ่มนับเวลาทันทีที่ component mount โดยไม่ต้องรอการกระทำจากผู้ใช้
   useEffect(() => {
-    const timerId = window.setTimeout(() => setIsCompleting(true), duration)
+    if (fixedProgress !== undefined) return
+    // 🔊 เสียง shimmer มหัศจรรย์ตอนเริ่ม loading
+    if (soundEnabled) playLoadingShimmer()
+    const timerId = window.setTimeout(() => {
+      setIsCompleting(true)
+      // 🔊 เสียง chime ตอนโหลดครบ 100%
+      if (soundEnabled) playCompletionChime()
+    }, duration)
     return () => window.clearTimeout(timerId)
-  }, [duration])
+  }, [duration, fixedProgress, soundEnabled])
 
   useEffect(() => {
     if (!isCompleting) return
 
-    const timerId = window.setTimeout(() => setIsLeaving(true), BURST_DURATION)
+    const timerId = window.setTimeout(() => {
+      setIsLeaving(true)
+      // 🔊 เสียง swoosh ตอน fade out
+      if (soundEnabled) playSwoosh()
+    }, BURST_DURATION)
     return () => window.clearTimeout(timerId)
-  }, [isCompleting])
+  }, [isCompleting, soundEnabled])
 
   // Spring ของ overlay จะ fade ออกหลัง timer ครบ และค่อย unmount เมื่อ animation จบ
   const overlayStyle = useSpring({
@@ -243,8 +262,8 @@ export function LoadingScreen({
                 className={`absolute left-1/2 top-1/2 ${star.size}`}
               >
                 <animated.span
-                  style={twinkleStyle}
-                  className="block select-none text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]"
+                  className="block select-none"
+                  style={{ ...twinkleStyle, color: orbitStarColor, filter: `drop-shadow(0 0 8px ${orbitStarColor}e6)` }}
                 >
                   ✦
                 </animated.span>
@@ -267,8 +286,8 @@ export function LoadingScreen({
                 className={`absolute left-1/2 top-1/2 ${star.size}`}
               >
                 <animated.span
-                  style={twinkleStyle}
-                  className="block select-none text-pink-100 drop-shadow-[0_0_7px_rgba(255,255,255,0.85)]"
+                  className="block select-none"
+                  style={{ ...twinkleStyle, color: orbitStarColor, filter: `drop-shadow(0 0 7px ${orbitStarColor}d9)` }}
                 >
                   ✦
                 </animated.span>

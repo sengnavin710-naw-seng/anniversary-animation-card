@@ -7,6 +7,8 @@ export type ColorTheme = {
   titleText: string
   foregroundBg: string
   photoBorder: string
+  orbitStarColor: string
+  revealOverlay: string
   notebookBg: string
   noteText: string
 }
@@ -21,6 +23,8 @@ export const COLOR_LABELS: Record<keyof ColorTheme, string> = {
   titleText: 'Title Text',
   foregroundBg: 'Unlock Card',
   photoBorder: 'Photo Border',
+  orbitStarColor: 'Orbit Star Color',
+  revealOverlay: 'Heart Reveal',
   notebookBg: 'Notebook',
   noteText: 'Note Text',
 }
@@ -38,6 +42,8 @@ export const PRESET_THEMES: { name: string; emoji: string; theme: ColorTheme }[]
       titleText: '#ffffff',
       foregroundBg: '#be185d',
       photoBorder: '#f472a4',
+      orbitStarColor: '#fff2a8',
+      revealOverlay: '#f472a4',
       notebookBg: '#fce4ec',
       noteText: '#9d174d',
     },
@@ -54,6 +60,8 @@ export const PRESET_THEMES: { name: string; emoji: string; theme: ColorTheme }[]
       titleText: '#ffffff',
       foregroundBg: '#1e40af',
       photoBorder: '#60a5fa',
+      orbitStarColor: '#fff2a8',
+      revealOverlay: '#60a5fa',
       notebookBg: '#e3f2fd',
       noteText: '#1e3a5f',
     },
@@ -70,6 +78,8 @@ export const PRESET_THEMES: { name: string; emoji: string; theme: ColorTheme }[]
       titleText: '#ffffff',
       foregroundBg: '#6d28d9',
       photoBorder: '#a78bfa',
+      orbitStarColor: '#fff2a8',
+      revealOverlay: '#a78bfa',
       notebookBg: '#f3e8ff',
       noteText: '#5b21b6',
     },
@@ -86,6 +96,8 @@ export const PRESET_THEMES: { name: string; emoji: string; theme: ColorTheme }[]
       titleText: '#ffffff',
       foregroundBg: '#065f46',
       photoBorder: '#34d399',
+      orbitStarColor: '#fff2a8',
+      revealOverlay: '#34d399',
       notebookBg: '#ecfdf5',
       noteText: '#065f46',
     },
@@ -102,6 +114,8 @@ export const PRESET_THEMES: { name: string; emoji: string; theme: ColorTheme }[]
       titleText: '#ffffff',
       foregroundBg: '#9a3412',
       photoBorder: '#f97316',
+      orbitStarColor: '#fff2a8',
+      revealOverlay: '#f97316',
       notebookBg: '#fff7ed',
       noteText: '#9a3412',
     },
@@ -109,6 +123,10 @@ export const PRESET_THEMES: { name: string; emoji: string; theme: ColorTheme }[]
 ]
 
 export const DEFAULT_THEME: ColorTheme = PRESET_THEMES[0].theme
+
+export function normalizeColorTheme(theme?: Partial<ColorTheme> | null): ColorTheme {
+  return { ...DEFAULT_THEME, ...theme }
+}
 
 // ─── Auto-generate full theme from a single primary color ────
 import chroma from 'chroma-js'
@@ -126,6 +144,8 @@ export function generateThemeFromColor(primary: string): ColorTheme {
     titleText: '#ffffff',
     foregroundBg: base.darken(2).hex(),
     photoBorder: base.luminance(0.25).hex(),
+    orbitStarColor: '#fff2a8',
+    revealOverlay: base.hex(),
     notebookBg: chroma.hsl(h, 0.6, 0.95).hex(),
     noteText: base.darken(2.5).hex(),
   }

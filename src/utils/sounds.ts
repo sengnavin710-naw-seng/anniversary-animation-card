@@ -60,11 +60,85 @@ function genFlip(): Float32Array {
   return data
 }
 
+/** เสียง shimmer มหัศจรรย์ตอน loading — ascending harmonics, นุ่มๆ */
+function genLoadingShimmer(): Float32Array {
+  const dur = 2.2, len = SR * dur
+  const data = new Float32Array(len)
+  for (let i = 0; i < len; i++) {
+    const t = i / SR
+    const freq = 520 + t * 180
+    const envelope = Math.sin(Math.PI * t / dur) * 0.05
+    data[i] = (
+      Math.sin(2 * Math.PI * freq * t) * 0.5 +
+      Math.sin(2 * Math.PI * freq * 1.5 * t) * 0.25 +
+      Math.sin(2 * Math.PI * freq * 2 * t) * 0.15 +
+      Math.sin(2 * Math.PI * freq * 3 * t) * 0.1
+    ) * envelope
+  }
+  return data
+}
+
+/** เสียง chime ตอนโหลดครบ 100% — ding-ding สดใส */
+function genCompletionChime(): Float32Array {
+  const dur = 0.7, len = SR * dur
+  const data = new Float32Array(len)
+  for (let i = 0; i < len; i++) {
+    const t = i / SR
+    let val = 0
+    // Note 1: C6 (1047 Hz) for 0-0.35s
+    if (t < 0.35) {
+      val = Math.sin(2 * Math.PI * 1047 * t) * Math.exp(-t * 6) * 0.15
+    }
+    // Note 2: E6 (1319 Hz) starts at 0.15s
+    if (t >= 0.15) {
+      const t2 = t - 0.15
+      val += Math.sin(2 * Math.PI * 1319 * t) * Math.exp(-t2 * 5) * 0.12
+    }
+    // Add shimmer overtone
+    val += Math.sin(2 * Math.PI * 2637 * t) * Math.exp(-t * 10) * 0.04
+    data[i] = val
+  }
+  return data
+}
+
+/** เสียง swoosh transition — นุ่มพัดผ่าน */
+function genSwoosh(): Float32Array {
+  const dur = 0.35, len = SR * dur
+  const data = new Float32Array(len)
+  for (let i = 0; i < len; i++) {
+    const t = i / SR
+    data[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * t / dur) * 0.1
+  }
+  // Lowpass
+  let prev = 0
+  for (let i = 0; i < len; i++) {
+    data[i] = prev = prev * 0.88 + data[i] * 0.12
+  }
+  return data
+}
+
+/** เสียง shrink — descending bloop น่ารัก */
+function genShrink(): Float32Array {
+  const dur = 0.22, len = SR * dur
+  const data = new Float32Array(len)
+  for (let i = 0; i < len; i++) {
+    const t = i / SR
+    const freq = 700 * Math.pow(350 / 700, t / dur)
+    const envelope = Math.exp(-t * 14) * 0.1
+    data[i] = Math.sin(2 * Math.PI * freq * t) * envelope
+  }
+  return data
+}
+
 // ─── AudioContext + Buffers ────────────────────────────
 let _ctx: AudioContext | null = null
 let _sparkleBuffer: AudioBuffer | null = null
 let _flipBuffer: AudioBuffer | null = null
 let _unlockBuffer: AudioBuffer | null = null
+let _shimmerBuffer: AudioBuffer | null = null
+let _chimeBuffer: AudioBuffer | null = null
+let _swooshBuffer: AudioBuffer | null = null
+let _shrinkBuffer: AudioBuffer | null = null
 
 function playBuffer(buffer: AudioBuffer | null, volume: number) {
   if (!buffer || !_ctx) return
@@ -79,55 +153,51 @@ function playBuffer(buffer: AudioBuffer | null, volume: number) {
 // ─── Public API ────────────────────────────────────────
 
 export function setupMobileAudio(soundUrl: string) {
-  // 1. Persistent touchstart listener: create + resume AudioContext on every touch.
-  //    iOS requires resume() in user gesture. Once running, stays alive until page backgrounds.
-  document.addEventListener('touchstart', () => {
-    if (!_ctx) {
-      _ctx = new AudioContext()
-    }
-    if (_ctx.state === 'suspended') void _ctx.resume()
-  }, true)
-  document.addEventListener('click', () => {
-    if (!_ctx) {
-      _ctx = new AudioContext()
-    }
-    if (_ctx.state === 'suspended') void _ctx.resume()
-  }, true)
+  // 1. Create AudioContext IMMEDIATELY — iOS allows creation + decoding
+  //    while suspended. Only playback needs resume() from user gesture.
+  _ctx = new AudioContext()
 
-  // 2. Pre-decode synthesized sounds into AudioBuffers (after first AudioContext is ready)
-  const decodeSfx = () => {
-    if (!_ctx) return
-    const sparkleWav = pcmToWav(SR, genSparkle())
-    const flipWav = pcmToWav(SR, genFlip())
-    void _ctx.decodeAudioData(sparkleWav.slice(0)).then(buf => { _sparkleBuffer = buf })
-    void _ctx.decodeAudioData(flipWav.slice(0)).then(buf => { _flipBuffer = buf })
+  // 2. Decode ALL synthesized sounds NOW (works even while suspended)
+  const decode = (data: Float32Array) => {
+    const wav = pcmToWav(SR, data)
+    return _ctx!.decodeAudioData(wav.slice(0))
   }
+  void decode(genSparkle()).then(buf => { _sparkleBuffer = buf })
+  void decode(genFlip()).then(buf => { _flipBuffer = buf })
+  void decode(genLoadingShimmer()).then(buf => { _shimmerBuffer = buf })
+  void decode(genCompletionChime()).then(buf => { _chimeBuffer = buf })
+  void decode(genSwoosh()).then(buf => { _swooshBuffer = buf })
+  void decode(genShrink()).then(buf => { _shrinkBuffer = buf })
 
   // 3. Pre-fetch + decode unlock MP3
-  const decodeUnlock = () => {
-    if (!_ctx) return
-    fetch(soundUrl)
-      .then(r => r.arrayBuffer())
-      .then(buf => _ctx!.decodeAudioData(buf))
-      .then(decoded => { _unlockBuffer = decoded })
-      .catch(() => {})
-  }
+  fetch(soundUrl)
+    .then(r => r.arrayBuffer())
+    .then(buf => _ctx!.decodeAudioData(buf))
+    .then(decoded => { _unlockBuffer = decoded })
+    .catch(() => {})
 
-  // Decode after first AudioContext creation
-  const initBuffers = () => {
-    decodeSfx()
-    decodeUnlock()
-    document.removeEventListener('touchstart', initBuffers, true)
-    document.removeEventListener('click', initBuffers, true)
+  // 4. Resume AudioContext on EVERY touch/click (iOS requirement).
+  //    Once resumed, stays alive until page backgrounds.
+  const resume = () => {
+    if (_ctx && _ctx.state === 'suspended') void _ctx.resume()
   }
-  document.addEventListener('touchstart', initBuffers, true)
-  document.addEventListener('click', initBuffers, true)
+  document.addEventListener('touchstart', resume, true)
+  document.addEventListener('click', resume, true)
 }
 
+// ─── Existing sounds ───
 export function playUnlockSound() { playBuffer(_unlockBuffer, 0.7) }
 export function playSparkle() { playBuffer(_sparkleBuffer, 0.5) }
 export function playFlip() { playBuffer(_flipBuffer, 0.6) }
 
+// ─── New sounds ───
+export function playLoadingShimmer() { playBuffer(_shimmerBuffer, 0.4) }
+export function playCompletionChime() { playBuffer(_chimeBuffer, 0.5) }
+export function playSwoosh() { playBuffer(_swooshBuffer, 0.4) }
+export function playShrink() { playBuffer(_shrinkBuffer, 0.4) }
+
 // Unused but keep for backward compat
 export function playWhoosh() { /* removed */ }
-export function resumeAudio() { /* no-op */ }
+export function resumeAudio() {
+  if (_ctx && _ctx.state === 'suspended') void _ctx.resume()
+}

@@ -2,10 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import Photoshop from '@uiw/react-color-colorful'
 import type { ColorTheme } from '../utils/colorTheme'
-import { DEFAULT_THEME, PRESET_THEMES, COLOR_LABELS, generateThemeFromColor } from '../utils/colorTheme'
-import { resizeImage } from '../utils/imageUtils'
+import { DEFAULT_THEME, generateThemeFromColor, normalizeColorTheme } from '../utils/colorTheme'
 import { encodeCardData } from '../utils/cardData'
+import { resizeImage } from '../utils/imageUtils'
 import { saveToHistory } from '../utils/history'
+import { saveSharedCard } from '../utils/supabase'
 import { AnimatedBackground } from '../components/AnimatedBackground'
 import { LoadingScreen } from '../components/LoadingScreen'
 import { CardStack } from '../components/CardStack'
@@ -32,7 +33,7 @@ const DEMO_DRAFT: DraftData = {
   isDemo: true,
 }
 
-type TabMode = 'presets' | 'auto' | 'custom'
+type ColorMenuKey = 'background' | 'orbitStars' | 'photoFrame' | 'heartReveal'
 
 export function CustomizePage() {
   const navigate = useNavigate()
@@ -42,19 +43,19 @@ export function CustomizePage() {
   const [colors, setColors] = useState<ColorTheme>(() => {
     const saved = localStorage.getItem('cute-template-colors')
     if (saved) {
-      try { return JSON.parse(saved) } catch { /* ignore */ }
+      try { return normalizeColorTheme(JSON.parse(saved)) } catch { /* ignore */ }
     }
     return DEFAULT_THEME
   })
-  const [activeKey, setActiveKey] = useState<keyof ColorTheme | null>(null)
-  const [tab, setTab] = useState<TabMode>('presets')
-  const [primaryColor, setPrimaryColor] = useState('#ec5f8f')
+  const [colorMenu, setColorMenu] = useState<ColorMenuKey>('background')
+  const [primaryColor, setPrimaryColor] = useState(() => colors.titleCardBg)
   const [draft, setDraft] = useState<DraftData>(DEMO_DRAFT)
   const [isGenerating, setIsGenerating] = useState(false)
   const [shareLink, setShareLink] = useState('')
+  const [shareWarning, setShareWarning] = useState('')
   const [showPopup, setShowPopup] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [hexInput, setHexInput] = useState('')
+  const [hexInput, setHexInput] = useState(() => colors.titleCardBg)
 
   const [toast, setToast] = useState('')
   useEffect(() => {
@@ -71,16 +72,34 @@ export function CustomizePage() {
     }
   }, [isSaveMode])
 
-  const updateColor = (key: keyof ColorTheme, value: string) => {
-    setColors((prev) => ({ ...prev, [key]: value }))
-  }
-
   const handleAutoGenerate = (hex: string) => {
     setPrimaryColor(hex)
     try {
       const generated = generateThemeFromColor(hex)
       setColors(generated)
     } catch { /* invalid color */ }
+  }
+
+  const colorMenus: { key: ColorMenuKey; label: string; icon: string; themeKey?: keyof ColorTheme }[] = [
+    { key: 'background', label: 'Background', icon: '🌈' },
+    { key: 'orbitStars', label: 'Orbit Stars', icon: '✨', themeKey: 'orbitStarColor' },
+    { key: 'photoFrame', label: 'Photo Frame', icon: '🖼️', themeKey: 'photoBorder' },
+    { key: 'heartReveal', label: 'Heart Reveal', icon: '💗', themeKey: 'revealOverlay' },
+  ]
+  const selectedColorMenu = colorMenus.find((item) => item.key === colorMenu)!
+  const selectedColor = colorMenu === 'background'
+    ? primaryColor
+    : colors[selectedColorMenu.themeKey!]
+
+  const updateSelectedColor = (hex: string) => {
+    setHexInput(hex)
+    if (colorMenu === 'background') {
+      setPrimaryColor(hex)
+      if (/^#[0-9a-f]{6}$/i.test(hex)) handleAutoGenerate(hex)
+      return
+    }
+
+    setColors((prev) => ({ ...prev, [selectedColorMenu.themeKey!]: hex }))
   }
 
   const handleSaveColors = () => {
@@ -103,21 +122,36 @@ export function CustomizePage() {
       const mainBlobData = await mainResp.blob()
       const mainFile = new File([mainBlobData], 'main.jpg', { type: mainBlobData.type })
       const mainPhoto = await resizeImage(mainFile)
-      const encoded = encodeCardData({
-        title: draft.title,
+      const title = draft.title?.trim() ? draft.title.trim() : 'Happy Anniversary 3Years'
+      const cardData = {
+        title,
         noteText: draft.noteText,
         cardImages,
         mainPhoto,
         colors: useColors,
-      })
-      const link = `${window.location.origin}${window.location.pathname}#/view/${encoded}`
+      }
+
+      let link: string
+      let fallbackMessage = ''
+      try {
+        const id = await saveSharedCard(cardData)
+        link = `${window.location.origin}${window.location.pathname}#/view/${id}`
+      } catch (supabaseError) {
+        console.warn('Supabase share failed; creating a self-contained link instead.', supabaseError)
+        const encoded = encodeCardData(cardData)
+        link = `${window.location.origin}${window.location.pathname}#/view/${encoded}`
+        fallbackMessage = 'Supabase cannot be reached right now, so this is a longer backup link. It opens without Supabase.'
+      }
+
       setShareLink(link)
-      saveToHistory(draft.title, link)
+      setShareWarning(fallbackMessage)
+      saveToHistory(title, link)
       setShowPopup(true)
       setCopied(false)
     } catch (err) {
       console.error(err)
-      alert('Failed to process. Please go back and try again.')
+      const detail = err instanceof Error ? err.message : String(err)
+      alert(`Failed to create the share link. Please try again.\n\nDetails: ${detail.slice(0, 500)}`)
     } finally {
       setIsGenerating(false)
     }
@@ -146,14 +180,6 @@ export function CustomizePage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const colorKeys = Object.keys(COLOR_LABELS) as (keyof ColorTheme)[]
-
-  const tabs: { key: TabMode; label: string; icon: string }[] = [
-    { key: 'presets', label: 'Presets', icon: '🎭' },
-    { key: 'auto', label: 'Auto Magic', icon: '✨' },
-    { key: 'custom', label: 'Custom', icon: '🎨' },
-  ]
-
   return (
     <div className="min-h-screen font-sans text-blossom-900 antialiased" style={{ background: `linear-gradient(to bottom, ${colors.bgFrom}, ${colors.bgTo})` }}>
       <div className="mx-auto max-w-lg px-4 py-5">
@@ -177,145 +203,59 @@ export function CustomizePage() {
           <PreviewCarousel colors={colors} draft={draft} />
         </div>
 
-        {/* ═══ Tab Switcher ═══ */}
-        <div className="mb-4 flex gap-1.5 rounded-2xl bg-white/50 p-1.5 backdrop-blur-sm">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => { setTab(t.key); setActiveKey(null) }}
-              className={`flex-1 rounded-xl py-2.5 text-center text-xs font-bold transition ${
-                tab === t.key
-                  ? 'bg-white text-blossom-600 shadow-md'
-                  : 'text-blossom-400 hover:bg-white/40'
-              }`}
-            >
-              <span className="mr-1">{t.icon}</span>{t.label}
-            </button>
-          ))}
+        {/* ═══ Color Menu ═══ */}
+        <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl bg-white/50 p-2 backdrop-blur-sm">
+          {colorMenus.map((item) => {
+            const swatch = item.key === 'background' ? primaryColor : colors[item.themeKey!]
+            return (
+              <button
+                key={item.key}
+                onClick={() => { setColorMenu(item.key); setHexInput(swatch) }}
+                aria-pressed={colorMenu === item.key}
+                className={`flex min-h-12 items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-bold transition ${
+                  colorMenu === item.key
+                    ? 'bg-white text-blossom-600 shadow-md ring-1 ring-blossom-200'
+                    : 'text-blossom-500 hover:bg-white/60'
+                }`}
+              >
+                <span className="text-base">{item.icon}</span>
+                <span className="flex-1 leading-tight">{item.label}</span>
+                <span className="h-5 w-5 shrink-0 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: swatch }} />
+              </button>
+            )
+          })}
         </div>
 
-        {/* ═══ Tab Content ═══ */}
         <div className="mb-6 rounded-2xl bg-white/60 p-4 shadow-sm backdrop-blur-sm">
-
-          {/* ── Presets Tab ── */}
-          {tab === 'presets' && (
-            <div>
-              <p className="mb-3 text-center text-xs font-semibold text-blossom-500">Choose a Theme</p>
-              <div className="grid grid-cols-5 gap-3">
-                {PRESET_THEMES.map((preset) => {
-                  const isActive = colors.titleCardBg === preset.theme.titleCardBg && colors.bgFrom === preset.theme.bgFrom
-                  return (
-                    <button
-                      key={preset.name}
-                      onClick={() => setColors(preset.theme)}
-                      className={`flex flex-col items-center gap-1.5 rounded-2xl p-2.5 transition hover:scale-105 ${
-                        isActive ? 'bg-white ring-2 ring-blossom-400 shadow-lg' : 'hover:bg-white/50'
-                      }`}
-                    >
-                      <div
-                        className="h-10 w-10 rounded-full shadow-md"
-                        style={{ background: `linear-gradient(135deg, ${preset.theme.bgFrom}, ${preset.theme.titleCardBg})` }}
-                      />
-                      <span className="text-[10px] font-bold text-blossom-600">{preset.name}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* ── Auto Magic Tab ── */}
-          {tab === 'auto' && (
-            <div className="flex flex-col items-center gap-4">
-              <p className="text-center text-xs font-semibold text-blossom-500">
-                Pick one color → we generate the whole theme ✨
-              </p>
-              <Photoshop
-                color={primaryColor}
-                onChange={(color) => handleAutoGenerate(color.hex)}
-                style={{ width: '100%', maxWidth: 280 }}
+          <p className="mb-1 text-center text-xs font-bold text-blossom-600">{selectedColorMenu.label}</p>
+          <p className="mb-3 text-center text-[11px] text-blossom-400">
+            {colorMenu === 'background'
+              ? 'Choose a color to generate a matching theme.'
+              : 'Choose a color and see it update in the preview.'}
+          </p>
+          <div className="flex flex-col items-center gap-3">
+            <Photoshop
+              color={selectedColor}
+              onChange={(color) => updateSelectedColor(color.hex)}
+              style={{ width: '100%', maxWidth: 280 }}
+            />
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: selectedColor }} />
+              <input
+                type="text"
+                value={hexInput}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setHexInput(value)
+                  if (/^#[0-9a-f]{6}$/i.test(value)) updateSelectedColor(value)
+                }}
+                onBlur={() => setHexInput(selectedColor)}
+                className="w-24 rounded-lg border border-blossom-200 px-2 py-1.5 text-center font-mono text-xs font-bold text-blossom-700 focus:outline-none focus:ring-2 focus:ring-blossom-300"
+                aria-label={`${selectedColorMenu.label} hex color`}
               />
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full border-2 border-white shadow-md" style={{ backgroundColor: primaryColor }} />
-                <input
-                  type="text"
-                  value={primaryColor}
-                  onChange={(e) => {
-                    const v = e.target.value
-                    setPrimaryColor(v)
-                    if (/^#[0-9a-f]{6}$/i.test(v)) handleAutoGenerate(v)
-                  }}
-                  className="w-24 rounded-lg border border-blossom-200 px-2 py-1.5 text-center font-mono text-xs font-bold text-blossom-700 focus:outline-none focus:ring-2 focus:ring-blossom-300"
-                />
-              </div>
-              <div className="flex w-full flex-wrap justify-center gap-1.5">
-                {colorKeys.map((key) => (
-                  <div key={key} className="flex flex-col items-center gap-0.5">
-                    <div
-                      className="h-6 w-6 rounded-full border border-white shadow-sm"
-                      style={{ backgroundColor: colors[key] }}
-                      title={`${COLOR_LABELS[key]}: ${colors[key]}`}
-                    />
-                    <span className="text-[7px] font-medium text-blossom-400">{COLOR_LABELS[key].split(' ')[0]}</span>
-                  </div>
-                ))}
-              </div>
             </div>
-          )}
-
-          {/* ── Custom Tab ── */}
-          {tab === 'custom' && (
-            <div>
-              <p className="mb-3 text-center text-xs font-semibold text-blossom-500">Fine-tune Each Color</p>
-              <div className="grid grid-cols-2 gap-2">
-                {colorKeys.map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => {
-                      setActiveKey(activeKey === key ? null : key)
-                      setHexInput(colors[key])
-                    }}
-                    className={`flex items-center gap-2 rounded-xl px-3 py-2 text-left transition ${
-                      activeKey === key ? 'bg-blossom-100 ring-1 ring-blossom-300' : 'hover:bg-blossom-50'
-                    }`}
-                  >
-                    <div
-                      className="h-6 w-6 shrink-0 rounded-full border-2 border-white shadow-sm"
-                      style={{ backgroundColor: colors[key] }}
-                    />
-                    <span className="text-[10px] font-semibold text-blossom-600">{COLOR_LABELS[key]}</span>
-                  </button>
-                ))}
-              </div>
-
-              {activeKey && (
-                <div className="mt-4 flex flex-col items-center gap-3">
-                  <p className="text-xs font-bold text-blossom-600">{COLOR_LABELS[activeKey]}</p>
-                  <Photoshop
-                    color={colors[activeKey]}
-                    onChange={(color) => updateColor(activeKey, color.hex)}
-                    style={{ width: '100%', maxWidth: 280 }}
-                  />
-                  <div className="flex items-center gap-2">
-                    <div className="h-6 w-6 rounded-full border shadow-sm" style={{ backgroundColor: colors[activeKey] }} />
-                    <input
-                      type="text"
-                      value={hexInput}
-                      onChange={(e) => {
-                        const v = e.target.value
-                        setHexInput(v)
-                        if (/^#[0-9a-f]{6}$/i.test(v)) updateColor(activeKey, v)
-                      }}
-                      onBlur={() => setHexInput(colors[activeKey])}
-                      className="w-24 rounded-lg border border-blossom-200 px-2 py-1.5 text-center font-mono text-xs font-bold text-blossom-700 focus:outline-none focus:ring-2 focus:ring-blossom-300"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          </div>
         </div>
-
         {/* ═══ Actions ═══ */}
         {isSaveMode ? (
           <button
@@ -355,6 +295,11 @@ export function CustomizePage() {
               <p className="mt-1 text-xs text-white/80">Share the link with your loved one ♡</p>
             </div>
             <div className="px-6 py-5">
+              {shareWarning && (
+                <p className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+                  {shareWarning}
+                </p>
+              )}
               <label className="mb-1.5 block text-xs font-semibold text-blossom-500">Share Link</label>
               <div className="mb-4 flex items-center gap-2">
                 <div className="min-w-0 flex-1 overflow-hidden rounded-xl border-2 border-blossom-100 bg-blossom-50/50 px-3 py-2.5">
@@ -449,7 +394,7 @@ function PreviewCarousel({ colors, draft }: { colors: ColorTheme; draft: { title
           <div className="w-full shrink-0 overflow-hidden">
             <MiniFrame scale={scale} colors={colors}>
               <AnimatedBackground phase="loading" colors={colors} />
-              <LoadingScreen duration={999999} />
+              <LoadingScreen fixedProgress={50} soundEnabled={false} orbitStarColor={colors.orbitStarColor} />
             </MiniFrame>
           </div>
 
@@ -457,7 +402,7 @@ function PreviewCarousel({ colors, draft }: { colors: ColorTheme; draft: { title
           <div className="w-full shrink-0 overflow-hidden">
             <MiniFrame scale={scale} colors={colors}>
               <AnimatedBackground phase="home" colors={colors} />
-              <CardStack cardImages={draft.cardFiles} colors={colors} />
+              <CardStack cardImages={draft.cardFiles} colors={colors} soundEnabled={false} />
             </MiniFrame>
           </div>
 

@@ -4,7 +4,7 @@ import { useDrag } from '@use-gesture/react'
 import anniversaryPhoto from '../assets/anniversary-photo.jpg'
 import notebookCard from '../assets/notebook-card-blank.png'
 import type { ColorTheme } from '../utils/colorTheme'
-import { playUnlockSound } from '../utils/sounds'
+import { playCompletionChime, playFlip, playLoadingShimmer, playSparkle, playSwoosh, playUnlockSound } from '../utils/sounds'
 import { DEFAULT_THEME } from '../utils/colorTheme'
 
 // BACKGROUND is now derived from colors prop
@@ -33,12 +33,15 @@ type CuteUnlockSliderProps = {
 }
 
 export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
-  const actualTitle = props.title ?? ANNIVERSARY_TITLE
+  const actualTitle = props.title?.trim() ? props.title : ANNIVERSARY_TITLE
   const actualNoteText = props.noteText ?? NOTE_TEXT
   const actualPhoto = props.mainPhoto ?? anniversaryPhoto
+  const titleHasMyanmar = /[\u1000-\u109f]/u.test(actualTitle)
+  const noteHasMyanmar = /[\u1000-\u109f]/u.test(actualNoteText)
   const clr = props.colors ?? DEFAULT_THEME
   const initUnlocked = props.initiallyUnlocked ?? false
   const baseCardRef = useRef<HTMLDivElement>(null)
+  const unlockSoundPlayedRef = useRef(initUnlocked)
   const [isUnlocked, setIsUnlocked] = useState(initUnlocked)
   const [showTitle, setShowTitle] = useState(initUnlocked)
   const [showTopEffects, setShowTopEffects] = useState(initUnlocked)
@@ -144,18 +147,21 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
     if (!showTitle) return
 
     const characterDelay = HEART_MOVE_DURATION / actualTitle.length
-    const timerIds = ANNIVERSARY_TITLE.split('').map((_, index) =>
+    const timerIds = actualTitle.split('').map((_, index) =>
       window.setTimeout(() => {
-        setTypedTitle(ANNIVERSARY_TITLE.slice(0, index + 1))
+        setTypedTitle(actualTitle.slice(0, index + 1))
       }, (index + 1) * characterDelay),
     )
 
     return () => timerIds.forEach((timerId) => window.clearTimeout(timerId))
-  }, [showTitle])
+  }, [actualTitle, showTitle])
 
   // เมื่อพิมพ์หัวข้อครบ ให้หัวใจออกจากใต้การ์ดและตกถึงกึ่งกลางพื้นที่รูป
   useEffect(() => {
-    if (typedTitle !== ANNIVERSARY_TITLE) return
+    if (initUnlocked) return
+    if (typedTitle !== actualTitle) return
+
+    playFlip()
 
     // อ้างอิงตำแหน่งภาพเดิม: top 160px, กว้างสูงสุด 320px และเว้นขอบจอ 16px
     // จึงทำให้หัวใจหยุดตรงกลางพื้นที่รูปได้แม้หน้าจอมีขนาดต่างกัน
@@ -184,6 +190,7 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
         setIsHeartExpanding(true)
         await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
         setShowHeartBox(true)
+        playCompletionChime()
         const expandHeartBox = heartBoxApi.start({
           from: { opacity: 0, scale: 0.15, borderRadius: '999px' },
           to: { opacity: 1, scale: 1, borderRadius: '1.5rem' },
@@ -198,11 +205,17 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
         setShowHeartBoxShadow(true)
       },
     })
-  }, [fallingHeartApi, heartBoxApi, typedTitle])
+  }, [actualTitle, fallingHeartApi, heartBoxApi, initUnlocked, typedTitle])
 
   // เส้นกรอบเริ่มวิ่งก่อน → Typewriter เริ่มที่ 4.5 วิ (เส้นวิ่งได้ครึ่งทาง)
   useEffect(() => {
     if (!showHeartBoxShadow) return
+
+    // Start the unlock music as soon as the photo and message card are revealed.
+    if (!unlockSoundPlayedRef.current) {
+      unlockSoundPlayedRef.current = true
+      playUnlockSound()
+    }
 
     setTypedNote('')
     const TYPEWRITER_START = 3500
@@ -213,10 +226,12 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
     const starsTimer = window.setTimeout(() => setShowFallingStars(true), 400)
     const strokeTimer = window.setTimeout(() => {
       setStartOuterProgress(true)
+      playLoadingShimmer()
     }, 1000)
 
     // Typewriter เริ่มตอนเส้นวิ่งได้ประมาณครึ่งทาง
     const typewriterTimer = window.setTimeout(() => {
+      playSparkle()
       actualNoteText.split('').forEach((_, index) => {
         timerIds.push(window.setTimeout(() => {
           setTypedNote(actualNoteText.slice(0, index + 1))
@@ -230,16 +245,15 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
       window.clearTimeout(typewriterTimer)
       timerIds.forEach((timerId) => window.clearTimeout(timerId))
     }
-  }, [showHeartBoxShadow])
+  }, [actualNoteText, showHeartBoxShadow])
 
 
   // ข้อความยาวกว่าแอนิเมชันเส้นกรอบ จึงถือว่าเป็นจังหวะสุดท้ายของทั้ง sequence
   useEffect(() => {
     if (typedNote !== actualNoteText) return
-
     const finishTimer = window.setTimeout(() => setShowOuterFrameFinish(true), 120)
     return () => window.clearTimeout(finishTimer)
-  }, [typedNote])
+  }, [actualNoteText, typedNote])
 
   // Glow และ halo เริ่มพร้อม Typewriter และจบครบใน 900ms
   useEffect(() => {
@@ -282,8 +296,8 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
 
   // การ์ดหน้าจาง → BaseCard เลื่อนขึ้น → หัวใจเลื่อนไปด้านขวาของ BaseCard
   const playUnlockSequence = async () => {
-    // Play unlock sound effect (pre-loaded, works on iOS)
-    playUnlockSound()
+    // Foreground fade and base card lift share a soft transition swoosh.
+    playSwoosh()
 
     const fadeForeground = api.start({
       foregroundOpacity: 0,
@@ -308,6 +322,7 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
     setShowTitle(true)
     setShowTopEffects(true)
     setShowUnderline(true)
+    playSparkle()
     await api.start({
       // เมื่อ BaseCard อยู่บนสุด หัวใจย่อเหลือครึ่งหนึ่งเพื่อเปิดพื้นที่ให้หัวข้อ
       heartScale: 0.5,
@@ -395,7 +410,7 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
           <animated.path
             d="M 105 5 H 895 Q 995 5 995 105 V 1895 Q 995 1995 895 1995 H 105 Q 5 1995 5 1895 V 105 Q 5 5 105 5 Z"
             fill="none"
-            stroke={clr.titleCardBg}
+            stroke={clr.photoBorder}
             strokeWidth="4"
             vectorEffect="non-scaling-stroke"
             strokeLinecap="round"
@@ -449,7 +464,7 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
           >
             ♥
           </animated.div>
-          <p className="absolute left-3 right-16 top-1/2 z-10 -translate-y-1/2 whitespace-nowrap font-display text-left text-[clamp(0.875rem,5vw,1.5rem)] font-bold leading-tight tracking-tight text-white">
+          <p className={`${titleHasMyanmar ? 'card-copy-myanmar' : ''} absolute left-3 right-16 top-1/2 z-10 -translate-y-1/2 whitespace-nowrap font-display text-left text-[clamp(0.875rem,5vw,1.5rem)] font-bold leading-tight tracking-tight text-white`}>
             {typedTitle}
             {showTitle && <span className="cursor-blink ml-0.5 text-blossom-100">|</span>}
           </p>
@@ -507,13 +522,18 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
                 alt="Anniversary memory"
                 className="h-full w-full object-cover"
               />
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{ backgroundColor: clr.revealOverlay, mixBlendMode: 'multiply', opacity: 0.16 }}
+                aria-hidden="true"
+              />
             </animated.div>
             {showHeartBoxShadow && (
               <animated.svg className="pointer-events-none absolute inset-0 z-20 h-full w-full overflow-visible" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
                 <animated.path
                   d="M 105 5 H 895 Q 995 5 995 105 V 895 Q 995 995 895 995 H 105 Q 5 995 5 895 V 105 Q 5 5 105 5 Z"
                   fill="none"
-                  stroke={clr.titleCardBg}
+                  stroke={clr.photoBorder}
                   strokeWidth="4"
                   vectorEffect="non-scaling-stroke"
                   strokeLinecap="round"
@@ -553,7 +573,7 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
                   style={cardProgressStyle}
                 />
               </animated.svg>
-              <p className="absolute inset-x-[10%] top-1/2 z-10 -translate-y-1/2 whitespace-pre-wrap text-center font-sans text-[clamp(0.85rem,3.5vw,1.1rem)] font-medium leading-[23px] tracking-[-0.01em] text-pink-700">
+              <p className={`${noteHasMyanmar ? 'card-copy-myanmar' : ''} absolute inset-x-[10%] top-1/2 z-10 -translate-y-1/2 whitespace-pre-wrap text-center font-sans text-[clamp(0.85rem,3.5vw,1.1rem)] font-medium leading-[23px] tracking-[-0.01em] text-pink-700`}>
                 {typedNote}
                 {typedNote && typedNote.length < actualNoteText.length && (
                   <span className="cursor-blink ml-px text-pink-500">|</span>

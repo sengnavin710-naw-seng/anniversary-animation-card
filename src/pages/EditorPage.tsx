@@ -85,10 +85,6 @@ export function EditorPage() {
       showToast('Please upload the Main Photo.')
       return
     }
-    if (!title.trim()) {
-      showToast('Please enter a Card Title.')
-      return
-    }
     if (!noteText.trim()) {
       showToast('Please enter a Card Message.')
       return
