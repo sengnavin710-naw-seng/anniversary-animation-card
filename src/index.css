@@ -103,3 +103,34 @@
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
+
+/* ⭐💗 Cute Falling Stars & Hearts (หลัง unlock เสร็จ) */
+@keyframes cuteFall {
+  0% {
+    transform: translateY(-30px) translateX(0) scale(0.8);
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.85;
+    transform: translateY(calc(5vh)) translateX(calc(var(--sway, 0px) * 0.2)) scale(1);
+  }
+  25% {
+    opacity: 0.8;
+    transform: translateY(calc(25vh)) translateX(calc(var(--sway, 0px) * -0.4));
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateY(calc(50vh)) translateX(calc(var(--sway, 0px) * 0.5));
+  }
+  75% {
+    opacity: 0.5;
+    transform: translateY(calc(75vh)) translateX(calc(var(--sway, 0px) * -0.3));
+  }
+  95% {
+    opacity: 0.15;
+  }
+  100% {
+    transform: translateY(calc(105vh)) translateX(calc(var(--sway, 0px) * 0.2));
+    opacity: 0;
+  }
+}

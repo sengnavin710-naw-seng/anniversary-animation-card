@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { animated, easings, useSpring, useSprings } from '@react-spring/web'
 import { useDrag } from '@use-gesture/react'
 import anniversaryPhoto from '../assets/anniversary-photo.jpg'
 import notebookCard from '../assets/notebook-card-blank.png'
 import type { ColorTheme } from '../utils/colorTheme'
+import { playUnlockSound } from '../utils/sounds'
 import { DEFAULT_THEME } from '../utils/colorTheme'
 
 // BACKGROUND is now derived from colors prop
@@ -48,6 +49,7 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
   const [showHeartBoxShadow, setShowHeartBoxShadow] = useState(initUnlocked)
   const [startOuterProgress, setStartOuterProgress] = useState(initUnlocked)
   const [showOuterFrameFinish, setShowOuterFrameFinish] = useState(initUnlocked)
+  const [showFallingStars, setShowFallingStars] = useState(initUnlocked)
   const [typedTitle, setTypedTitle] = useState(initUnlocked ? actualTitle : '')
   const [typedNote, setTypedNote] = useState(initUnlocked ? actualNoteText : '')
   const [{ dragY, baseY, foregroundOpacity, heartScale, heartX, scale }, api] = useSpring(() => ({
@@ -204,10 +206,11 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
 
     setTypedNote('')
     const TYPEWRITER_START = 3500
-    const characterDelay = 18
+    const characterDelay = 45
     const timerIds: number[] = []
 
-    // เริ่มเส้นกรอบวิ่ง (หลังสมุดกางครบ 1 วิ)
+    // เริ่ม falling stars + เส้นกรอบวิ่ง (หลังสมุดกางครบ)
+    const starsTimer = window.setTimeout(() => setShowFallingStars(true), 400)
     const strokeTimer = window.setTimeout(() => {
       setStartOuterProgress(true)
     }, 1000)
@@ -222,6 +225,7 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
     }, 1000 + TYPEWRITER_START)
 
     return () => {
+      window.clearTimeout(starsTimer)
       window.clearTimeout(strokeTimer)
       window.clearTimeout(typewriterTimer)
       timerIds.forEach((timerId) => window.clearTimeout(timerId))
@@ -278,6 +282,9 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
 
   // การ์ดหน้าจาง → BaseCard เลื่อนขึ้น → หัวใจเลื่อนไปด้านขวาของ BaseCard
   const playUnlockSequence = async () => {
+    // Play unlock sound effect (pre-loaded, works on iOS)
+    playUnlockSound()
+
     const fadeForeground = api.start({
       foregroundOpacity: 0,
       config: { duration: 350 },
@@ -309,6 +316,29 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
       config: { duration: HEART_MOVE_DURATION, easing: easings.easeInOutCubic },
     })
   }
+
+  // Memoize particle data so re-renders don't regenerate random values
+  const fallingParticles = useMemo(() => {
+    const behindChars = ['💗', '♡', '⭐', '✧', '🩷', '💕', '✨', '💖', '🌟', '✦']
+    const frontChars = ['💗', '🩷', '♡', '⭐', '✨', '🌟', '💕', '✦', '💖']
+    const behind = Array.from({ length: 10 }, (_, i) => ({
+      left: 5 + Math.random() * 90,
+      delay: Math.random() * 6,
+      duration: 5 + Math.random() * 3,
+      size: 8 + Math.random() * 10,
+      sway: -15 + Math.random() * 30,
+      char: behindChars[i],
+    }))
+    const front = Array.from({ length: 14 }, (_, i) => ({
+      left: 5 + Math.random() * 90,
+      delay: Math.random() * 6,
+      duration: 5 + Math.random() * 3,
+      size: 10 + Math.random() * 12,
+      sway: -20 + Math.random() * 40,
+      char: frontChars[i % frontChars.length],
+    }))
+    return { behind, front }
+  }, [])
 
   return (
     <main className="relative z-10 grid min-h-screen place-items-center p-4 sm:p-6">
@@ -532,6 +562,50 @@ export function CuteUnlockSlider(props: CuteUnlockSliderProps) {
             </animated.section>
           )}
         </div>
+      )}
+      {/* Cute Falling Stars & Hearts Overlay */}
+      {showFallingStars && (
+        <>
+          {/* Behind cards (z-[2]) */}
+          <div className="pointer-events-none fixed inset-0 z-[2] overflow-hidden" aria-hidden="true">
+            {fallingParticles.behind.map((p, i) => (
+              <span
+                key={`b${i}`}
+                className="absolute animate-[cuteFall_var(--dur)_var(--delay)_linear_infinite] opacity-50"
+                style={{
+                  left: `${p.left}%`,
+                  top: '-30px',
+                  fontSize: p.size,
+                  '--delay': `${p.delay}s`,
+                  '--dur': `${p.duration}s`,
+                  '--sway': `${p.sway}px`,
+                } as React.CSSProperties}
+              >
+                {p.char}
+              </span>
+            ))}
+          </div>
+          {/* In front of cards (z-[100]) */}
+          <div className="pointer-events-none fixed inset-0 z-[100] overflow-hidden" aria-hidden="true">
+            {fallingParticles.front.map((p, i) => (
+              <span
+                key={`f${i}`}
+                className="absolute animate-[cuteFall_var(--dur)_var(--delay)_linear_infinite]"
+                style={{
+                  left: `${p.left}%`,
+                  top: '-30px',
+                  fontSize: p.size,
+                  '--delay': `${p.delay}s`,
+                  '--dur': `${p.duration}s`,
+                  '--sway': `${p.sway}px`,
+                  filter: 'drop-shadow(0 0 4px rgba(255,182,213,0.5))',
+                } as React.CSSProperties}
+              >
+                {p.char}
+              </span>
+            ))}
+          </div>
+        </>
       )}
     </main>
   )

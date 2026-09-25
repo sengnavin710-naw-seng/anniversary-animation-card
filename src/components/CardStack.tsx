@@ -3,7 +3,7 @@ import { useSprings, animated, to as interpolate } from '@react-spring/web'
 import { useDrag } from '@use-gesture/react'
 import anniversaryPhoto from '../assets/anniversary-photo.jpg'
 import { SwipeParticles, type SwipeParticlesHandle } from './SwipeParticles'
-import { playWhoosh, playSparkle, playFlip } from '../utils/sounds'
+import { playSparkle, playFlip } from '../utils/sounds'
 import type { ColorTheme } from '../utils/colorTheme'
 import { DEFAULT_THEME } from '../utils/colorTheme'
 
@@ -113,7 +113,7 @@ export function CardStack({ cardImages, colors, onComplete }: CardStackProps) {
       const isLastCard =
         gone.size === cards.length - 1 && !gone.has(index)
 
-      // การ์ดปลิวออก → burst + เสียง whoosh/sparkle (ทุกใบรวมใบสุดท้าย)
+      // การ์ดปลิวออก → burst + เสียงติ้ว (ทุกใบรวมใบสุดท้าย)
       if (!active && trigger) {
         gone.add(index)
         particlesRef.current?.burst(
@@ -121,8 +121,7 @@ export function CardStack({ cardImages, colors, onComplete }: CardStackProps) {
           window.innerHeight / 2,
           10,
         )
-        playWhoosh()
-        addTimer(() => playSparkle(), 200)
+        playSparkle()
       }
 
       api.start((i) => {
