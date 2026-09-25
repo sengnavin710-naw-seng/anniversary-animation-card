@@ -6,6 +6,7 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 const STORAGE_BUCKET = 'card-media'
 const REQUEST_TIMEOUT_MS = 12_000
 const ID_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+const WORKER_PROXY_PREFIX = '/api/supabase'
 
 type SharedCardRow = {
   title: string
@@ -24,6 +25,21 @@ function getConfig() {
     throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.')
   }
   return { url: SUPABASE_URL, key: SUPABASE_ANON_KEY }
+}
+
+function useWorkerProxy(): boolean {
+  return window.location.hostname.endsWith('.workers.dev')
+}
+
+function getEndpoint(config: { url: string }, path: string): string {
+  return useWorkerProxy()
+    ? `${window.location.origin}${WORKER_PROXY_PREFIX}${path}`
+    : `${config.url}${path}`
+}
+
+function getPublicImageUrl(config: { url: string }, id: string, filename: string): string {
+  const path = `/storage/v1/object/public/${STORAGE_BUCKET}/${id}/${filename}`
+  return getEndpoint(config, path)
 }
 
 function makeShortId(): string {
@@ -60,7 +76,7 @@ async function uploadImage(
   const blob = await (await fetch(dataUrl)).blob()
   const objectPath = `${id}/${filename}`
   const response = await fetchWithTimeout(
-    `${config.url}/storage/v1/object/${STORAGE_BUCKET}/${objectPath.split('/').map(encodeURIComponent).join('/')}`,
+    getEndpoint(config, `/storage/v1/object/${STORAGE_BUCKET}/${objectPath.split('/').map(encodeURIComponent).join('/')}`),
     {
       method: 'POST',
       headers: {
@@ -74,7 +90,7 @@ async function uploadImage(
     },
   )
   if (!response.ok) throw await responseError(response)
-  return `${config.url}/storage/v1/object/public/${STORAGE_BUCKET}/${objectPath.split('/').map(encodeURIComponent).join('/')}`
+  return getPublicImageUrl(config, id, filename)
 }
 
 export async function saveSharedCard(data: CardData): Promise<string> {
@@ -93,7 +109,7 @@ export async function saveSharedCard(data: CardData): Promise<string> {
     main_photo: mainPhoto,
     colors: normalizeColorTheme(data.colors),
   }
-  const response = await fetchWithTimeout(`${config.url}/rest/v1/rpc/create_shared_card`, {
+  const response = await fetchWithTimeout(getEndpoint(config, '/rest/v1/rpc/create_shared_card'), {
     method: 'POST',
     headers: {
       apikey: config.key,
@@ -116,7 +132,7 @@ export async function saveSharedCard(data: CardData): Promise<string> {
 export async function fetchSharedCard(id: string): Promise<CardData | null> {
   if (!/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{10}$/.test(id)) return null
   const config = getConfig()
-  const response = await fetchWithTimeout(`${config.url}/rest/v1/rpc/get_shared_card`, {
+  const response = await fetchWithTimeout(getEndpoint(config, '/rest/v1/rpc/get_shared_card'), {
     method: 'POST',
     headers: {
       apikey: config.key,

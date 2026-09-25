@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import Photoshop from '@uiw/react-color-colorful'
 import type { ColorTheme } from '../utils/colorTheme'
 import { DEFAULT_THEME, generateThemeFromColor, normalizeColorTheme } from '../utils/colorTheme'
-import { encodeCardData } from '../utils/cardData'
 import { resizeImage } from '../utils/imageUtils'
 import { saveToHistory } from '../utils/history'
 import { saveSharedCard } from '../utils/supabase'
@@ -52,7 +51,6 @@ export function CustomizePage() {
   const [draft, setDraft] = useState<DraftData>(DEMO_DRAFT)
   const [isGenerating, setIsGenerating] = useState(false)
   const [shareLink, setShareLink] = useState('')
-  const [shareWarning, setShareWarning] = useState('')
   const [showPopup, setShowPopup] = useState(false)
   const [copied, setCopied] = useState(false)
   const [hexInput, setHexInput] = useState(() => colors.titleCardBg)
@@ -131,27 +129,17 @@ export function CustomizePage() {
         colors: useColors,
       }
 
-      let link: string
-      let fallbackMessage = ''
-      try {
-        const id = await saveSharedCard(cardData)
-        link = `${window.location.origin}${window.location.pathname}#/view/${id}`
-      } catch (supabaseError) {
-        console.warn('Supabase share failed; creating a self-contained link instead.', supabaseError)
-        const encoded = encodeCardData(cardData)
-        link = `${window.location.origin}${window.location.pathname}#/view/${encoded}`
-        fallbackMessage = 'Supabase cannot be reached right now, so this is a longer backup link. It opens without Supabase.'
-      }
+      const id = await saveSharedCard(cardData)
+      const link = `${window.location.origin}${window.location.pathname}#/view/${id}`
 
       setShareLink(link)
-      setShareWarning(fallbackMessage)
       saveToHistory(title, link)
       setShowPopup(true)
       setCopied(false)
     } catch (err) {
       console.error(err)
       const detail = err instanceof Error ? err.message : String(err)
-      alert(`Failed to create the share link. Please try again.\n\nDetails: ${detail.slice(0, 500)}`)
+      alert(`Could not create the short share link. Check the Cloudflare Worker runtime variables and Supabase setup, then try again.\n\nDetails: ${detail.slice(0, 400)}`)
     } finally {
       setIsGenerating(false)
     }
@@ -295,11 +283,6 @@ export function CustomizePage() {
               <p className="mt-1 text-xs text-white/80">Share the link with your loved one ♡</p>
             </div>
             <div className="px-6 py-5">
-              {shareWarning && (
-                <p className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
-                  {shareWarning}
-                </p>
-              )}
               <label className="mb-1.5 block text-xs font-semibold text-blossom-500">Share Link</label>
               <div className="mb-4 flex items-center gap-2">
                 <div className="min-w-0 flex-1 overflow-hidden rounded-xl border-2 border-blossom-100 bg-blossom-50/50 px-3 py-2.5">
